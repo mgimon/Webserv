@@ -12,6 +12,7 @@ int main() {
 
     // PARSEO
 
+
     // GESTION DE CONEXIONES
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
     sockaddr_in addr{};
@@ -25,7 +26,7 @@ int main() {
     int client_fd = accept(server_fd, nullptr, nullptr);
 
     // RESPUESTA
-    std::ifstream file("www/index.html");
+    std::ifstream file("var/www/html/index.html");
     if (!file) {
         std::cerr << "Could not open index.html\n";
         close(client_fd);
