@@ -1,0 +1,14 @@
+# Objects
+*.o
+
+# Program
+webserv
+webserv.exe
+a.out
+
+# Tmp files
+*~
+*.swp
+
+# IDE
+.vscode/
