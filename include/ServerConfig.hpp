@@ -2,14 +2,18 @@
 #define SERVERCONFIG_HPP
 
 #include <string>
+#include <vector>
+
+#include "LocationConfig.hpp"
 
 class ServerConfig {
 	private:
 		std::string host_;
+		std::string document_root_;
 		int port_;
 		int backlog_;
 		int buffer_size_;
-		std::string document_root_;
+		std::vector<LocationConfig> locations_; // Lista de locations
 
 	public:
 		ServerConfig();
@@ -23,12 +27,14 @@ class ServerConfig {
 		int getBacklog() const;
 		int getBufferSize() const;
 		std::string getDocumentRoot() const;
+		std::vector<LocationConfig> getLocations() const;
 
 		void setHost(const std::string& host);
 		void setPort(int port);
 		void setBacklog(int backlog);
 		void setBufferSize(int buffer_size);
 		void setDocumentRoot(const std::string& document_root);
+		void setLocations(const std::vector<LocationConfig>& locations);
 };
 
 #endif

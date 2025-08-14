@@ -11,15 +11,18 @@ ServerConfig& ServerConfig::operator=(const ServerConfig& other) {
 ServerConfig::~ServerConfig() {}
 
 
-/** METHODS **/
+/** FUNCTIONS **/
 std::string ServerConfig::getHost() const { return host_; }
 int ServerConfig::getPort() const { return port_; }
 int ServerConfig::getBacklog() const { return backlog_; }
 int ServerConfig::getBufferSize() const { return buffer_size_; }
 std::string ServerConfig::getDocumentRoot() const { return document_root_; }
+std::vector<LocationConfig> ServerConfig::getLocations() const { return locations_; }
+
 
 void ServerConfig::setHost(const std::string& host) { host_ = host; }
 void ServerConfig::setPort(int port) { port_ = port; }
 void ServerConfig::setBacklog(int backlog) { backlog_ = backlog; }
 void ServerConfig::setBufferSize(int buffer_size) { buffer_size_ = buffer_size; }
 void ServerConfig::setDocumentRoot(const std::string& document_root) { document_root_ = document_root; }
+void ServerConfig::setLocations(const std::vector<LocationConfig>& locations) { locations_ = locations; }

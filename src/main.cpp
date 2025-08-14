@@ -11,7 +11,7 @@
 int main() {
 
     // PARSEO
-
+    std::vector<ServerConfig>   serverList;
 
     // GESTION DE CONEXIONES
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -21,9 +21,9 @@ int main() {
     addr.sin_port = htons(8080);
 
     bind(server_fd, (sockaddr*)&addr, sizeof(addr));
-    listen(server_fd, 1);
+    listen(server_fd, 1); // backlog
 
-    int client_fd = accept(server_fd, nullptr, nullptr);
+    int client_fd = accept(server_fd, NULL, NULL);
 
     // RESPUESTA
     std::ifstream file("var/www/html/index.html");
