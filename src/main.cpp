@@ -12,8 +12,11 @@ int main() {
 
     // PARSEO
     std::vector<ServerConfig>   serverList;
+        // hardcodear atributos de objeto serverList para poder ir trabajando
 
     // GESTION DE CONEXIONES
+        // incluye gestion de multiples clientes (poll/epoll)
+        // incluye gestion de multiples procesos? (servidores)
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
@@ -26,6 +29,8 @@ int main() {
     int client_fd = accept(server_fd, NULL, NULL);
 
     // RESPUESTA
+        // incluye gestion de metodos (GET, POST, DELETE)
+        // incluye gestion de CGI
     std::ifstream file("var/www/html/index.html");
     if (!file) {
         std::cerr << "Could not open index.html\n";
