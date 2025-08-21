@@ -1,14 +1,18 @@
 #include "../include/ServerConfig.hpp"
+#include "../include/utils.hpp"
+
+int status = 0;
 
 int main() {
 
-    // PARSEO
-    std::vector<ServerConfig>   serverList;
+    /*** PARSEO ***/
         // hardcodear atributos de objeto serverList para poder ir trabajando
+    std::vector<ServerConfig>   serverList;
 
-    // GESTION DE CONEXIONES
-        // incluye gestion de multiples clientes (poll/epoll)
-        // incluye gestion de multiples procesos? (servidores)
+    /*** GESTION DE CONEXIONES ***/
+        // multiples clientes (poll/epoll ?)
+        // multiples servidores (procesos ?)
+
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
     sockaddr_in addr = {};
     addr.sin_family = AF_INET;
@@ -18,36 +22,16 @@ int main() {
     bind(server_fd, (sockaddr*)&addr, sizeof(addr));
     listen(server_fd, 1); // backlog
 
-    int client_fd = accept(server_fd, NULL, NULL);
-
-    // RESPUESTA
-        // incluye gestion de metodos (GET, POST, DELETE)
-        // incluye gestion de CGI
-    std::ifstream file("var/www/html/index.html");
-    if (!file) {
-        std::cerr << "Could not open index.html\n";
-        close(client_fd);
-        close(server_fd);
-        return 1;
+    bool    keep_alive = true;
+    while (keep_alive)
+    {
+        int client_fd = accept(server_fd, NULL, NULL);
+        /***  RESPUESTA ***/ status = utils::respond(client_fd, server_fd, keep_alive);
+        if (!keep_alive)
+            close(client_fd);
     }
 
-    std::string body((std::istreambuf_iterator<char>(file)),
-                     std::istreambuf_iterator<char>());
+    close(server_fd);
 
-    std::ostringstream oss;
-    oss << body.size();
-
-    std::string response =
-        "HTTP/1.1 200 OK\r\n"
-        "Content-Type: text/html\r\n"
-        "Content-Length: " + oss.str() + "\r\n"
-        "\r\n" +
-        body;
-
-    write(client_fd, response.c_str(), response.size());
-
-    close(client_fd); // provisional para 1 conexion
-    close(server_fd); // provisional para 1 conexion
-
-    return 0;
+    return status;
 }
