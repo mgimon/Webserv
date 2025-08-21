@@ -3,6 +3,7 @@
 
 int status = 0;
 
+// TODO check keep alive vs status return
 int main() {
 
     /*** PARSEO ***/
