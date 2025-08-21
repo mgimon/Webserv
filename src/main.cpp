@@ -1,11 +1,3 @@
-#include <iostream>
-#include <fstream>
-#include <string>
-#include <cstring>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <unistd.h>
-
 #include "../include/ServerConfig.hpp"
 
 int main() {
@@ -18,7 +10,7 @@ int main() {
         // incluye gestion de multiples clientes (poll/epoll)
         // incluye gestion de multiples procesos? (servidores)
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
-    sockaddr_in addr{};
+    sockaddr_in addr = {};
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = INADDR_ANY;
     addr.sin_port = htons(8080);
@@ -38,12 +30,17 @@ int main() {
         close(server_fd);
         return 1;
     }
+
     std::string body((std::istreambuf_iterator<char>(file)),
-                        std::istreambuf_iterator<char>());
+                     std::istreambuf_iterator<char>());
+
+    std::ostringstream oss;
+    oss << body.size();
+
     std::string response =
         "HTTP/1.1 200 OK\r\n"
         "Content-Type: text/html\r\n"
-        "Content-Length: " + std::to_string(body.size()) + "\r\n"
+        "Content-Length: " + oss.str() + "\r\n"
         "\r\n" +
         body;
 

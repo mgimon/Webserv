@@ -3,16 +3,23 @@
 
 #include <string>
 #include <vector>
+#include <sstream>
+#include <iostream>
+#include <fstream>
+#include <cstring>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <unistd.h>
 
 #include "LocationConfig.hpp"
 
 class ServerConfig {
 	private:
 		std::string host_;
-		std::string document_root_;
 		int port_;
 		int backlog_;
 		int buffer_size_;
+		std::string document_root_;
 		std::vector<LocationConfig> locations_; // Lista de locations
 
 	public:
