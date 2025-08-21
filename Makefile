@@ -6,6 +6,7 @@ INC_DIR = include
 SRCS = main.cpp utils.cpp \
 		LocationConfig.cpp \
 		ServerConfig.cpp \
+		HttpRequest.cpp
 
 OBJS = $(SRCS:.cpp=.o)
 INCLUDES = -I $(INC_DIR)
