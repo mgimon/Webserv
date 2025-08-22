@@ -18,40 +18,77 @@ void HttpRequest::setVersion(const std::string& version) { version_ = version; }
 void HttpRequest::setHeaders(const std::map<std::string, std::string>& headers) { headers_ = headers; }
 void HttpRequest::setBody(const std::string& body) { body_ = body; }
 
-//TODO : construir path dinamicamente
-int HttpRequest::parseRequest(int client_fd) {
+std::string readUntilBody(int client_fd, ssize_t &bytes_read)
+{
     char buffer[4096];
-    std::string request;
-    ssize_t bytes_read;
+    std::string saved;
 
-    // Leer desde el socket
-    while ((bytes_read = recv(client_fd, buffer, sizeof(buffer) - 1, 0)) > 0) {
+    while ((bytes_read = read(client_fd, buffer, sizeof(buffer) - 1)) > 0)
+    {
         buffer[bytes_read] = '\0';
-        request += buffer;
+        saved += buffer;
         // detener lectura si ya encontramos el final de headers
-        if (request.find("\r\n\r\n") != std::string::npos)
+        if (saved.find("\r\n\r\n") != std::string::npos)
             break;
     }
 
-    if (request.empty())
-        return -1;
+    return (saved);
+}
 
-    std::istringstream request_stream(request);
+void HttpRequest::readBody(int client_fd)
+{
+    body_.clear();
+    std::map<std::string, std::string>::const_iterator it = headers_.find("Content-Length");
+    // Si hay body
+    if (it != headers_.end())
+    {
+        int content_length = atoi(it->second.c_str());
+        if (content_length > 0)
+        {
+            ssize_t bytes_read;
+            std::string saved = readUntilBody(client_fd, bytes_read);
+            size_t pos = saved.find("\r\n\r\n");
+            std::string body_part = saved.substr(pos + 4);
+            body_ = body_part;
+
+            // Resize
+            ssize_t remaining = content_length - body_part.size();
+            char buffer[4096];
+            while (remaining > 0)
+            {
+                ssize_t to_read = (remaining > 4096) ? 4096 : remaining;
+                ssize_t n = read(client_fd, buffer, to_read);
+                if (n <= 0) break;
+                body_.append(buffer, n);
+                remaining -= n;
+            }
+        }
+    }
+}
+
+int HttpRequest::parseRequest(int client_fd)
+{
+    ssize_t bytes_read;
+    std::string saved = readUntilBody(client_fd, bytes_read);
+    if (saved.empty())
+        return (-1);
+
+    std::istringstream rStream(saved);
     std::string line;
 
-    // ---- Primera línea (Request-Line) ----
-    if (!std::getline(request_stream, line))
-        return -1;
+    // Request line
+    if (!std::getline(rStream, line))
+        return (-1);
     if (!line.empty() && line[line.size() - 1] == '\r')
         line.erase(line.size() - 1);
 
     std::istringstream first_line(line);
-    if (!(first_line >> method_ >> path_ >> version_))
-        return -1;
+    if (!(first_line >> this->method_ >> this->path_ >> this->version_))
+        return (-1);
 
-    // ---- Headers ----
+    // Headers
     headers_.clear();
-    while (std::getline(request_stream, line) && line != "\r") {
+    while (std::getline(rStream, line) && line != "\r") {
         if (!line.empty() && line[line.size() - 1] == '\r')
             line.erase(line.size() - 1);
         size_t pos = line.find(':');
@@ -65,27 +102,7 @@ int HttpRequest::parseRequest(int client_fd) {
         }
     }
 
-    // ---- Body (si hay Content-Length) ----
-    body_.clear();
-    std::map<std::string, std::string>::const_iterator it = headers_.find("Content-Length");
-    if (it != headers_.end()) {
-        int content_length = atoi(it->second.c_str());
-        if (content_length > 0) {
-            // ya puede haber datos del body en el buffer leído
-            std::string remaining;
-            std::getline(request_stream, remaining, '\0');
-            if (!remaining.empty() && remaining[0] == '\r')
-                remaining.erase(0, 1);
-            body_ = remaining;
-
-            // si falta por leer
-            while ((int)body_.size() < content_length) {
-                bytes_read = recv(client_fd, buffer, sizeof(buffer), 0);
-                if (bytes_read <= 0) break;
-                body_.append(buffer, bytes_read);
-            }
-        }
-    }
+    readBody(client_fd);
 
     return 0;
 }

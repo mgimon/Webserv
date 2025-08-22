@@ -41,7 +41,7 @@ class HttpRequest {
         void setHeaders(const std::map<std::string, std::string>& headers);
         void setBody(const std::string& body);
 
-        //TODO : construir path dinamicamente
+        void readBody(int client_fd);
         int parseRequest(int client_fd);
 };
 
