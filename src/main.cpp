@@ -1,4 +1,5 @@
 #include "../include/ServerConfig.hpp"
+#include "../include/HttpRequest.hpp"
 #include "../include/utils.hpp"
 
 int status = 0;
@@ -27,9 +28,12 @@ int main() {
     while (keep_alive)
     {
         int client_fd = accept(server_fd, NULL, NULL);
-        /***  RESPUESTA ***/ status = utils::respond(client_fd, server_fd, keep_alive);
+        /***  RESPUESTA ***/
+        HttpRequest http_request(client_fd);
+        status = utils::respond(client_fd, server_fd, http_request, keep_alive);
+        close(client_fd);
         if (!keep_alive)
-            close(client_fd);
+            break;
     }
 
     close(server_fd);
