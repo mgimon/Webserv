@@ -18,6 +18,22 @@ void HttpRequest::setVersion(const std::string& version) { version_ = version; }
 void HttpRequest::setHeaders(const std::map<std::string, std::string>& headers) { headers_ = headers; }
 void HttpRequest::setBody(const std::string& body) { body_ = body; }
 
+void HttpRequest::printRequest() {
+
+    std::cout << "REQUEST:" << std::endl;
+    std::cout << GREEN << this->getMethod() << " " << this->getPath() << " " << this->getVersion() << RESET << std::endl;
+
+        std::map<std::string, std::string>::const_iterator it = this->getHeaders().begin();
+        std::cout << "    Headers:" << std::endl;
+        while (it != this->getHeaders().end())
+        {
+            std::cout << GREEN << "    " << it->first << "  " << it->second << RESET << std::endl;
+            ++it;
+        }
+        std::cout << "    Body:" << std::endl;
+        std::cout << GREEN << "    " << this->getBody() << RESET << std::endl;
+}
+
 std::string readUntilBody(int client_fd, ssize_t &bytes_read)
 {
     char buffer[4096];

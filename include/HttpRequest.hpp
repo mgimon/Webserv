@@ -13,6 +13,8 @@
 #include <map>
 #include <cstdlib>
 
+#include "macros.hpp"
+
 
 class HttpRequest {
     private:
@@ -43,6 +45,7 @@ class HttpRequest {
 
         void readBody(int client_fd);
         int parseRequest(int client_fd);
+        void printRequest();
 };
 
 #endif

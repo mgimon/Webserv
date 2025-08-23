@@ -16,6 +16,7 @@ int main() {
         // multiples servidores (procesos ?)
 
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    int client_fd;
     sockaddr_in addr = {};
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = INADDR_ANY;
@@ -24,12 +25,14 @@ int main() {
     bind(server_fd, (sockaddr*)&addr, sizeof(addr));
     listen(server_fd, 1); // backlog
 
+    // TODO: no cerrar el fd cliente hasta responder las multiples requests
     bool    keep_alive = true;
     while (keep_alive)
     {
-        int client_fd = accept(server_fd, NULL, NULL);
+        client_fd = accept(server_fd, NULL, NULL);
         /***  RESPUESTA ***/
-        HttpRequest http_request(client_fd);
+        HttpRequest http_request(client_fd); // inicializa un objeto con lo escrito en el cliente
+        http_request.printRequest();
         status = utils::respond(client_fd, server_fd, http_request, keep_alive);
         close(client_fd);
         if (!keep_alive)
