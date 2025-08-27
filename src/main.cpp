@@ -1,5 +1,6 @@
 #include "../include/ServerConfig.hpp"
 #include "../include/HttpRequest.hpp"
+#include "../include/HttpResponse.hpp"
 #include "../include/utils.hpp"
 
 int status = 0;
@@ -26,19 +27,19 @@ int main() {
     listen(server_fd, 1); // backlog
 
     // TODO: no cerrar el fd cliente hasta responder las multiples requests
+    client_fd = accept(server_fd, NULL, NULL);
     bool    keep_alive = true;
     while (keep_alive)
     {
-        client_fd = accept(server_fd, NULL, NULL);
         /***  RESPUESTA ***/
         HttpRequest http_request(client_fd); // inicializa un objeto con lo escrito en el cliente
         http_request.printRequest();
+        //HttpResponse http_response();
         status = utils::respond(client_fd, server_fd, http_request, keep_alive);
-        close(client_fd);
-        if (!keep_alive)
-            break;
+        //if (!keep_alive)
+            //break;
     }
-
+    close(client_fd);
     close(server_fd);
 
     return status;

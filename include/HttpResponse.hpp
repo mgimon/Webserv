@@ -41,6 +41,7 @@ class HttpResponse {
 		void setHeaders(const std::map<std::string, std::string>& headers);
 		void setBody(const std::string& body);
 
+		std::string buildResponse() const;
 };
 
 #endif

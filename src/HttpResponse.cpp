@@ -32,3 +32,18 @@ void HttpResponse::setStatusCode(int code) { status_code_ = code; }
 void HttpResponse::setStatusMessage(const std::string& message) { status_message_ = message; }
 void HttpResponse::setHeaders(const std::map<std::string, std::string>& headers) { headers_ = headers; }
 void HttpResponse::setBody(const std::string& body) { body_ = body; }
+
+std::string HttpResponse::buildResponse() const {
+
+    std::ostringstream response;
+
+    response << version_ << " " << status_code_ << " " << status_message_ << "\r\n";
+
+    std::map<std::string, std::string>::const_iterator it;
+    for (it = headers_.begin(); it != headers_.end(); ++it)
+        response << it->first << ": " << it->second << "\r\n";
+    response << "\r\n";
+
+    response << body_;
+    return (response.str());
+}
