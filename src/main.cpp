@@ -26,20 +26,20 @@ int main() {
     bind(server_fd, (sockaddr*)&addr, sizeof(addr));
     listen(server_fd, 1); // backlog
 
-    // TODO: no cerrar el fd cliente hasta responder las multiples requests
-    client_fd = accept(server_fd, NULL, NULL);
+    // provisional para 1 cliente
     bool    keep_alive = true;
     while (keep_alive)
     {
         /***  RESPUESTA ***/
-        HttpRequest http_request(client_fd); // inicializa un objeto con lo escrito en el cliente
+        client_fd = accept(server_fd, NULL, NULL);
+        HttpRequest http_request(client_fd);
         http_request.printRequest();
-        //HttpResponse http_response();
         status = utils::respond(client_fd, server_fd, http_request, keep_alive);
-        //if (!keep_alive)
-            //break;
+        close(client_fd);
+        if (!keep_alive)
+            break;
     }
-    close(client_fd);
+    
     close(server_fd);
 
     return status;
