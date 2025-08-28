@@ -9,12 +9,12 @@ int status = 0;
 int main() {
 
     /*** PARSEO ***/
-        // hardcodear atributos de objeto serverList para poder ir trabajando
+    // hardcodear atributos de objeto serverList para poder ir trabajando
     std::vector<ServerConfig>   serverList;
 
     /*** GESTION DE CONEXIONES ***/
-        // multiples clientes (poll/epoll ?)
-        // multiples servidores (procesos ?)
+    // multiples clientes (poll/epoll ?)
+    // multiples servidores (procesos ?)
 
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
     int client_fd;
