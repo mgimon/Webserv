@@ -26,20 +26,19 @@ int main() {
     bind(server_fd, (sockaddr*)&addr, sizeof(addr));
     listen(server_fd, 1); // backlog
 
+    /***  RESPUESTA ***/
     // provisional para 1 cliente
+    client_fd = accept(server_fd, NULL, NULL);
     bool    keep_alive = true;
     while (keep_alive)
     {
-        /***  RESPUESTA ***/
-        client_fd = accept(server_fd, NULL, NULL);
         HttpRequest http_request(client_fd);
         http_request.printRequest();
-        status = utils::respond(client_fd, server_fd, http_request, keep_alive);
-        close(client_fd);
+        status = utils::respond(client_fd, http_request, keep_alive);
         if (!keep_alive)
             break;
     }
-    
+    close(client_fd);
     close(server_fd);
 
     return status;
