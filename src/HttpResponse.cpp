@@ -34,7 +34,8 @@ void HttpResponse::setStatusMessage(const std::string& message) { status_message
 void HttpResponse::setHeaders(const std::map<std::string, std::string>& headers) { headers_ = headers; }
 void HttpResponse::setBody(const std::string& body) { body_ = body; }
 
-void HttpResponse::setContentType(const std::string &path) {
+void HttpResponse::setContentType(const std::string &path)
+{
     if (path.size() >= 5 && path.substr(path.size() - 5) == ".html")
         this->content_type_ = "text/html";
     else if (path.size() >= 4 && path.substr(path.size() - 4) == ".css")
@@ -109,7 +110,7 @@ void HttpResponse::set200(std::ifstream &file) {
 }
 
 
-std::string HttpResponse::buildResponse(std::string path) {
+void HttpResponse::buildResponse(std::string path) {
 
     this->setVersion("HTTP/1.1");
     this->setContentType(path);
@@ -119,14 +120,18 @@ std::string HttpResponse::buildResponse(std::string path) {
         set500();
     else
         set200(file);
+}
 
+void HttpResponse::respondInClient(int client_fd)
+{
     std::ostringstream response;
-    response << version_ << " " << status_code_ << " " << status_message_ << "\r\n";
-    std::map<std::string, std::string>::const_iterator it;
-    for (it = headers_.begin(); it != headers_.end(); ++it)
-        response << it->first << ": " << it->second << "\r\n";
-    response << "\r\n";
+    std::map<std::string, std::string> headers = this->getHeaders();
 
-    response << body_;
-    return (response.str());
+    response << this->getVersion() << " " << this->getStatusCode()
+                   << " " << this->getStatusMessage() << "\r\n";
+    for (std::map<std::string, std::string>::iterator it = headers.begin(); it != headers.end(); ++it)
+        response << it->first << ": " << it->second << "\r\n";
+    response << "\r\n" << this->getBody();
+
+    write(client_fd, response.str().c_str(), response.str().size());
 }

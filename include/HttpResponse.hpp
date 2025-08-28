@@ -48,7 +48,8 @@ class HttpResponse {
 		void set500();
 		void set200(std::ifstream &file);
 
-		std::string buildResponse(std::string path);
+		void buildResponse(std::string path);
+		void respondInClient(int client_fd);
 };
 
 #endif

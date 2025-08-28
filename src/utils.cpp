@@ -12,8 +12,9 @@ void validatePath(std::string &path)
     path = "var/www/html/" + path;
 }
 
-void handleKeepAlive(const HttpRequest &http_request, bool &keep_alive, std::map<std::string, std::string> &headers)
+void handleKeepAlive(const HttpRequest &http_request, bool &keep_alive, HttpResponse &respondTool)
 {
+    std::map<std::string, std::string> headers = respondTool.getHeaders();
     std::map<std::string, std::string>::const_iterator it = http_request.getHeaders().find("Connection");
     if (it != http_request.getHeaders().end() && it->second == "keep-alive")
     {
@@ -30,6 +31,7 @@ void handleKeepAlive(const HttpRequest &http_request, bool &keep_alive, std::map
         headers["Connection"] = "close";
         keep_alive = false;
     }
+    respondTool.setHeaders(headers);
 }
 
 // Debe incluir gestion de CGI
@@ -53,7 +55,6 @@ int respond(int client_fd, const HttpRequest &http_request, bool &keep_alive) {
     else {
         // metodo no soportado - 405 Method Not Allowed
         std::cout << "Other method" << std::endl;
-        http_request.printRequest();
         return (1);
     }
 }
@@ -64,21 +65,12 @@ int respondGet(int client_fd, const HttpRequest &http_request, bool &keep_alive)
     std::string path = http_request.getPath();
     validatePath(path);
 
-    std::string response = respondTool.buildResponse(path);
-    std::map<std::string, std::string> headers = respondTool.getHeaders();
-    handleKeepAlive(http_request, keep_alive, headers);
+    respondTool.buildResponse(path);
+    handleKeepAlive(http_request, keep_alive, respondTool);
 
-    std::ostringstream final_response;
-    final_response << respondTool.getVersion() << " " << respondTool.getStatusCode()
-                   << " " << respondTool.getStatusMessage() << "\r\n";
-    for (std::map<std::string, std::string>::iterator h = headers.begin(); h != headers.end(); ++h)
-        final_response << h->first << ": " << h->second << "\r\n";
-    final_response << "\r\n" << respondTool.getBody();
-
-    write(client_fd, final_response.str().c_str(), final_response.str().size());
+    respondTool.respondInClient(client_fd);
     return (0);
 }
-
 
 
 }
