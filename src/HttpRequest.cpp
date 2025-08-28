@@ -18,7 +18,7 @@ void HttpRequest::setVersion(const std::string& version) { version_ = version; }
 void HttpRequest::setHeaders(const std::map<std::string, std::string>& headers) { headers_ = headers; }
 void HttpRequest::setBody(const std::string& body) { body_ = body; }
 
-void HttpRequest::printRequest() {
+void HttpRequest::printRequest() const {
 
     std::cout << "REQUEST:" << std::endl;
     std::cout << GREEN << this->getMethod() << " " << this->getPath() << " " << this->getVersion() << RESET << std::endl;

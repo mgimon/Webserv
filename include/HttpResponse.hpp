@@ -22,6 +22,8 @@ class HttpResponse {
 		std::map<std::string, std::string> headers_;
 		std::string body_;
 
+		std::string content_type_;
+
 	public:
 		HttpResponse();
 		//HttpResponse(const std::string& version, int status_code, const std::string& status_message);
@@ -41,7 +43,13 @@ class HttpResponse {
 		void setHeaders(const std::map<std::string, std::string>& headers);
 		void setBody(const std::string& body);
 
-		std::string buildResponse() const;
+		void setContentType(const std::string &path);
+
+		void set500();
+		void set200(std::ifstream &file);
+
+		void buildResponse(std::string path);
+		void respondInClient(int client_fd);
 };
 
 #endif

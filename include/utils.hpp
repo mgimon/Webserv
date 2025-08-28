@@ -15,8 +15,8 @@
 #include "HttpResponse.hpp"
 
 namespace utils {
-    int respondGet(int client_fd, int server_fd, const HttpRequest &http_request, bool &keep_alive);
-    int	respond(int client_fd, int server_fd, const HttpRequest &http_request, bool &keep_alive);
+    int respondGet(int client_fd, const HttpRequest &http_request, bool &keep_alive);
+    int	respond(int client_fd, const HttpRequest &http_request, bool &keep_alive);
 }
 
 #endif

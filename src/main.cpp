@@ -9,12 +9,12 @@ int status = 0;
 int main() {
 
     /*** PARSEO ***/
-        // hardcodear atributos de objeto serverList para poder ir trabajando
+    // hardcodear atributos de objeto serverList para poder ir trabajando
     std::vector<ServerConfig>   serverList;
 
     /*** GESTION DE CONEXIONES ***/
-        // multiples clientes (poll/epoll ?)
-        // multiples servidores (procesos ?)
+    // multiples clientes (poll/epoll ?)
+    // multiples servidores (procesos ?)
 
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
     int client_fd;
@@ -26,18 +26,17 @@ int main() {
     bind(server_fd, (sockaddr*)&addr, sizeof(addr));
     listen(server_fd, 1); // backlog
 
-    // TODO: no cerrar el fd cliente hasta responder las multiples requests
+    /***  RESPUESTA ***/
+    // provisional para 1 cliente
     client_fd = accept(server_fd, NULL, NULL);
     bool    keep_alive = true;
     while (keep_alive)
     {
-        /***  RESPUESTA ***/
-        HttpRequest http_request(client_fd); // inicializa un objeto con lo escrito en el cliente
+        HttpRequest http_request(client_fd);
         http_request.printRequest();
-        //HttpResponse http_response();
-        status = utils::respond(client_fd, server_fd, http_request, keep_alive);
-        //if (!keep_alive)
-            //break;
+        status = utils::respond(client_fd, http_request, keep_alive);
+        if (!keep_alive)
+            break;
     }
     close(client_fd);
     close(server_fd);
