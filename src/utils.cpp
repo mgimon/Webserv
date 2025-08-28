@@ -12,6 +12,26 @@ void validatePath(std::string &path)
     path = "var/www/html/" + path;
 }
 
+void handleKeepAlive(const HttpRequest &http_request, bool &keep_alive, std::map<std::string, std::string> &headers)
+{
+    std::map<std::string, std::string>::const_iterator it = http_request.getHeaders().find("Connection");
+    if (it != http_request.getHeaders().end() && it->second == "keep-alive")
+    {
+        headers["Connection"] = "keep-alive";
+        keep_alive = true;
+    }
+    else if (http_request.getVersion() == "HTTP/1.1")
+    {
+        headers["Connection"] = "keep-alive";
+        keep_alive = true;
+    }
+    else
+    {
+        headers["Connection"] = "close";
+        keep_alive = false;
+    }
+}
+
 // Debe incluir gestion de CGI
 int respond(int client_fd, const HttpRequest &http_request, bool &keep_alive) {
     const std::string &method = http_request.getMethod();
@@ -42,29 +62,11 @@ int respondGet(int client_fd, const HttpRequest &http_request, bool &keep_alive)
 {
     HttpResponse respondTool;
     std::string path = http_request.getPath();
+    validatePath(path);
 
-    if (path.empty() || path == "/")
-        path = "index.html";
-    else if (path[0] == '/')
-        path.erase(0, 1);
-
-    path = "var/www/html/" + path;
     std::string response = respondTool.buildResponse(path);
-
-    // headers del response
     std::map<std::string, std::string> headers = respondTool.getHeaders();
-
-    std::map<std::string, std::string>::const_iterator it = http_request.getHeaders().find("Connection");
-    if (it != http_request.getHeaders().end() && it->second == "keep-alive") {
-        headers["Connection"] = "keep-alive";
-        keep_alive = true;
-    } else if (http_request.getVersion() == "HTTP/1.1") {
-        headers["Connection"] = "keep-alive";
-        keep_alive = true;
-    } else {
-        headers["Connection"] = "close";
-        keep_alive = false;
-    }
+    handleKeepAlive(http_request, keep_alive, headers);
 
     std::ostringstream final_response;
     final_response << respondTool.getVersion() << " " << respondTool.getStatusCode()
@@ -74,7 +76,7 @@ int respondGet(int client_fd, const HttpRequest &http_request, bool &keep_alive)
     final_response << "\r\n" << respondTool.getBody();
 
     write(client_fd, final_response.str().c_str(), final_response.str().size());
-    return 0;
+    return (0);
 }
 
 
