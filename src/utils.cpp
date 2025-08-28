@@ -50,8 +50,10 @@ int respondGet(int client_fd, int server_fd, const HttpRequest &http_request, bo
     std::string content_type;
     std::string path = http_request.getPath();
 
-    if (path.empty() || path[path.size() - 1] == '/')
+    if (path.empty() || path == "/")
         path = "index.html";
+    else if (path[0] == '/')
+        path.erase(0, 1);  // quitar '/' inicial
 
     path = "var/www/html/" + path;
 

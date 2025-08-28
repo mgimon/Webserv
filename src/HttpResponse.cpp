@@ -68,7 +68,7 @@ void HttpResponse::set500() {
         this->setStatusCode(500);
         this->setStatusMessage("Internal Server Error :(");
         std::map<std::string, std::string> responseHeaders;
-        responseHeaders.insert(std::make_pair("Content-Type", ""));
+        responseHeaders.insert(std::make_pair("Content-Type", "text/html"));
         responseHeaders.insert(std::make_pair("Content-Length", oss.str()));
         responseHeaders.insert(std::make_pair("Connection", "close"));
         this->setHeaders(responseHeaders);
@@ -104,7 +104,7 @@ void HttpResponse::set200(std::ifstream &file) {
     this->setStatusMessage("OK");
     responseHeaders.insert(std::make_pair("Content-Type", this->content_type_));
     responseHeaders.insert(std::make_pair("Content-Length", oss.str()));
-    responseHeaders.insert(std::make_pair("Connection", "keep-alive"));
+    responseHeaders.insert(std::make_pair("Connection", "close"));
     this->setHeaders(responseHeaders);
 }
 
