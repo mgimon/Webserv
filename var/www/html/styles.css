@@ -57,9 +57,11 @@ main {
 }
 
 .maindiv {
+    padding: 1rem;
     background: #3a4b63;
     border-radius: 10px;
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
     font-size: 1.25rem;
@@ -67,12 +69,81 @@ main {
     height: 100%;
 }
 
+.blockdiv_1,
+.blockdiv_2 {
+    padding: 1rem;
+    background: #3a4b63;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    font-size: 1.25rem;
+    color: #f4f6fb;
+    height: 100%;
+}
+
+.blockdiv_1 .top {
+    flex: 3; /* 75% */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.blockdiv_1 .bottom {
+    flex: 1; /* 25% */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.blockdiv_1 form {
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    gap: 0.5rem;
+}
+
+.blockdiv_1 form input,
+.blockdiv_1 form textarea,
+.blockdiv_1 form button {
+    width: 100%; /* Los campos llenan el ancho del form */
+    box-sizing: border-box;
+}
+
+
+.blockdiv_2 .top {
+    flex: 3; /* 75% */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.blockdiv_2 .bottom {
+    flex: 1; /* 25% */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
 footer {
     background: #2c3e50;
     color: #bdc3c7;
-    text-align: left;
     padding: 1rem 2rem;
     font-size: 0.9rem;
+    display: flex;
+    justify-content: space-between; /* izquierda/derecha */
+    align-items: center;
+    padding-left: 4rem;
+    padding-right: 4rem;
+}
+
+footer a {
+    color: #8f94fb;
+    text-decoration: none;
 }
 
 p {

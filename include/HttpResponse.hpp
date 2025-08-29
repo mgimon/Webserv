@@ -45,11 +45,28 @@ class HttpResponse {
 
 		void setContentType(const std::string &path);
 
-		void set500();
+		void setError(const std::string &filepath, int status, const std::string &error_msg);
 		void set200(std::ifstream &file);
 
 		void buildResponse(std::string path);
 		void respondInClient(int client_fd);
 };
+
+/* 
+
+about.html → pagina informativa
+
+form.html → probar POST con datos simples
+
+upload.html → probar subida de archivos
+
+delete.html → probar DELETE sobre ficheros
+
+tests.html → hub de pruebas con enlaces a todas las paginas
+
+TODO: Un redirect.html con un link a una ruta configurada en config como HTTP redirect
+TODO: Un HTML con un formulario que haga POST a un .php o .py (ej. cgi-bin/test.php) para probar ejecucion de CGI
+
+*/
 
 #endif

@@ -53,10 +53,9 @@ void HttpResponse::setContentType(const std::string &path)
 }
 
 
-void HttpResponse::set500() {
+void HttpResponse::setError(const std::string &filepath, int statusCode, const std::string &error_msg) {
 
-    std::string str = "var/www/html/500Error.html";
-    std::ifstream file(str.c_str());
+    std::ifstream file(filepath.c_str());
 
     if (file)
     {
@@ -66,8 +65,8 @@ void HttpResponse::set500() {
         std::ostringstream oss;
         oss << body.size();
 
-        this->setStatusCode(500);
-        this->setStatusMessage("Internal Server Error :(");
+        this->setStatusCode(statusCode);
+        this->setStatusMessage(error_msg);
         std::map<std::string, std::string> responseHeaders;
         responseHeaders.insert(std::make_pair("Content-Type", "text/html"));
         responseHeaders.insert(std::make_pair("Content-Length", oss.str()));
@@ -76,16 +75,16 @@ void HttpResponse::set500() {
     }
     else
     {
-        std::string error = "<html><body><h1>500 Internal Server Error</h1></body></html>";
+        std::string errorbackup = "<html><body><h1>" + statusCode + error_msg + "</h1></body></html>";
 
-        this->setBody(error);
+        this->setBody(errorbackup);
         std::ostringstream oss;
-        oss << error.size();
+        oss << errorbackup.size();
 
-        this->setStatusCode(500);
-        this->setStatusMessage("Internal Server Error :(");
+        this->setStatusCode(statusCode);
+        this->setStatusMessage(error_msg);
         std::map<std::string, std::string> responseHeaders;
-        responseHeaders.insert(std::make_pair("Content-Type", ""));
+        responseHeaders.insert(std::make_pair("Content-Type", "text/html"));
         responseHeaders.insert(std::make_pair("Content-Length", oss.str()));
         responseHeaders.insert(std::make_pair("Connection", "close"));
         this->setHeaders(responseHeaders);
@@ -117,7 +116,7 @@ void HttpResponse::buildResponse(std::string path) {
     std::ifstream file(path.c_str());
     
     if (!file)
-        set500();
+        setError("var/www/html/404NotFound.html", 404, "Not Found :(");
     else
         set200(file);
 }
