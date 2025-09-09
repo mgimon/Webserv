@@ -3,11 +3,13 @@ NAME = webserv
 SRC_DIR = src
 INC_DIR = include
 
-SRCS = main.cpp utils.cpp \
+
+SRCS = main2.cpp utils.cpp \
 		LocationConfig.cpp \
 		ServerConfig.cpp \
 		HttpRequest.cpp \
-		HttpResponse.cpp
+		HttpResponse.cpp \
+		initServer.cpp 
 
 OBJS = $(SRCS:.cpp=.o)
 INCLUDES = -I $(INC_DIR)

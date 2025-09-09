@@ -75,7 +75,7 @@ void HttpResponse::setError(const std::string &filepath, int statusCode, const s
     }
     else
     {
-        std::string errorbackup = "<html><body><h1>" + statusCode + error_msg + "</h1></body></html>";
+        std::string errorbackup = "<html><body><h1>" /*+ statusCode*/ + error_msg + "</h1></body></html>";
 
         this->setBody(errorbackup);
         std::ostringstream oss;
