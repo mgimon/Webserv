@@ -13,10 +13,12 @@
 
 #include "HttpRequest.hpp"
 #include "HttpResponse.hpp"
+#include "ServerConfig.hpp"
 
 namespace utils {
     int respondGet(int client_fd, const HttpRequest &http_request, bool &keep_alive);
     int	respond(int client_fd, const HttpRequest &http_request, bool &keep_alive);
+    void hardcodeMultipleLocServer(std::vector<ServerConfig> &serverList);
 }
 
 #endif

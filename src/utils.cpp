@@ -72,5 +72,49 @@ int respondGet(int client_fd, const HttpRequest &http_request, bool &keep_alive)
     return (0);
 }
 
+void hardcodeMultipleLocServer(std::vector<ServerConfig> &serverList) {
+
+    ServerConfig server;
+    server.setHost("0.0.0.0");
+    server.setPort(8080);
+    server.setDocumentRoot("/var/www/html");
+
+    // Location "/"
+    LocationConfig loc_root;
+    loc_root.setPath("/");
+    std::vector<std::string> root_methods;
+    root_methods.push_back("GET");
+    root_methods.push_back("POST");
+    loc_root.setMethods(root_methods);
+    loc_root.setAutoIndex(false);
+
+    // Location "/images/"
+    LocationConfig loc_images;
+    loc_images.setPath("/images/");
+    std::vector<std::string> images_methods;
+    images_methods.push_back("GET");
+    loc_images.setMethods(images_methods);
+    loc_images.setAutoIndex(true);
+
+    // Location "/upload/"
+    LocationConfig loc_upload;
+    loc_upload.setPath("/upload/");
+    std::vector<std::string> upload_methods;
+    upload_methods.push_back("POST");
+    loc_upload.setMethods(upload_methods);
+    loc_upload.setAutoIndex(false);
+
+    // Add locations to server object
+    std::vector<LocationConfig> locations;
+    locations.push_back(loc_root);
+    locations.push_back(loc_images);
+    locations.push_back(loc_upload);
+    server.setLocations(locations);
+
+    // Push server object into array
+    serverList.push_back(server);
+
+}
+
 
 }

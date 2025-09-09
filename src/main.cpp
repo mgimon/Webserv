@@ -11,6 +11,7 @@ int main() {
     /*** PARSEO ***/
     // hardcodear atributos de objeto serverList para poder ir trabajando
     std::vector<ServerConfig>   serverList;
+    utils::hardcodeMultipleLocServer(serverList);
 
     /*** GESTION DE CONEXIONES ***/
     // multiples clientes (poll/epoll ?)
