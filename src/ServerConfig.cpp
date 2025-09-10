@@ -17,7 +17,7 @@ int ServerConfig::getPort() const { return port_; }
 int ServerConfig::getBacklog() const { return backlog_; }
 int ServerConfig::getBufferSize() const { return buffer_size_; }
 std::string ServerConfig::getDocumentRoot() const { return document_root_; }
-std::vector<LocationConfig> ServerConfig::getLocations() const { return locations_; }
+const std::vector<LocationConfig> &ServerConfig::getLocations() const { return locations_; }
 
 
 void ServerConfig::setHost(const std::string& host) { host_ = host; }

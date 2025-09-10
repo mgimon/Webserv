@@ -34,7 +34,7 @@ class ServerConfig {
 		int getBacklog() const;
 		int getBufferSize() const;
 		std::string getDocumentRoot() const;
-		std::vector<LocationConfig> getLocations() const;
+		const std::vector<LocationConfig> &getLocations() const;
 
 		void setHost(const std::string& host);
 		void setPort(int port);

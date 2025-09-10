@@ -35,8 +35,28 @@ void handleKeepAlive(const HttpRequest &http_request, bool &keep_alive, HttpResp
 }
 
 // Debe incluir gestion de CGI
-int respond(int client_fd, const HttpRequest &http_request, bool &keep_alive) {
+int respond(int client_fd, const HttpRequest &http_request, ServerConfig &serverOne, bool &keep_alive)
+{
+
     const std::string &method = http_request.getMethod();
+    const LocationConfig *requestLocation = locationMatchforRequest(http_request.getPath(), serverOne.getLocations());
+    
+    /* print*/
+    if (requestLocation) {
+    const std::vector<std::string> &methods = requestLocation->getMethods();
+    std::string methods_str = methods.empty() ? "none" : methods[0];
+    for (size_t i = 1; i < methods.size(); ++i)
+        methods_str += ", " + methods[i];
+
+    std::cout << YELLOW
+              << "Matched Location -> Path: " << requestLocation->getPath()
+              << " | Methods: " << methods_str
+              << " | AutoIndex: " << (requestLocation->getAutoIndex() ? "true" : "false")
+              << std::endl;
+    } else {
+        std::cout << YELLOW << "No matching location found." << std::endl;
+    }
+    /* end print*/
 
     if (method == "GET") {
         std::cout << "Method get" << std::endl;
@@ -72,9 +92,9 @@ int respondGet(int client_fd, const HttpRequest &http_request, bool &keep_alive)
     return (0);
 }
 
-void hardcodeMultipleLocServer(std::vector<ServerConfig> &serverList) {
+void hardcodeMultipleLocServer(ServerConfig &server)
+{
 
-    ServerConfig server;
     server.setHost("0.0.0.0");
     server.setPort(8080);
     server.setDocumentRoot("/var/www/html");
@@ -111,10 +131,27 @@ void hardcodeMultipleLocServer(std::vector<ServerConfig> &serverList) {
     locations.push_back(loc_upload);
     server.setLocations(locations);
 
-    // Push server object into array
-    serverList.push_back(server);
-
 }
+
+const LocationConfig* locationMatchforRequest(const std::string &request_path, const std::vector<LocationConfig> &locations)
+{
+    const LocationConfig* best_match = NULL;
+    size_t best_len = 0;
+
+    for (size_t i = 0; i < locations.size(); i++)
+    {
+        const std::string &loc_path = locations[i].getPath();
+        if (request_path.find(loc_path) == 0) {
+            if (loc_path.size() > best_len) {
+                best_len = loc_path.size();
+                best_match = &locations[i];
+            }
+        }
+    }
+
+    return best_match; // puede ser NULL si no hay match → usar defaults
+}
+
 
 
 }
