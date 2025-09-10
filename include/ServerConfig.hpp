@@ -13,18 +13,23 @@
 
 #include "LocationConfig.hpp"
 
+typedef struct s_listen
+{
+	std::string ip;
+	int port;
+	int backlog;
+}	t_listen;
+
 class ServerConfig {
 	private:
-		std::string host_;
-		int port_;
-		int backlog_;
 		int buffer_size_;
 		std::string document_root_;
 		std::vector<LocationConfig> locations_; // Lista de locations
+		std::vector<t_listen> listens_;
 
 	public:
 		ServerConfig();
-		ServerConfig(const std::string& host, int port, int backlog, int buffer_size, const std::string& document_root);
+		ServerConfig(int buffer_size, const std::string& document_root);
 		ServerConfig(const ServerConfig& other);
 		ServerConfig& operator=(const ServerConfig& other);
 		~ServerConfig();
@@ -35,13 +40,15 @@ class ServerConfig {
 		int getBufferSize() const;
 		std::string getDocumentRoot() const;
 		std::vector<LocationConfig> getLocations() const;
+		std::vector<t_listen> getListens() const;
 
 		void setHost(const std::string& host);
-		void setPort(int port);
+		void setPort(int ports);
 		void setBacklog(int backlog);
 		void setBufferSize(int buffer_size);
 		void setDocumentRoot(const std::string& document_root);
 		void setLocations(const std::vector<LocationConfig>& locations);
+		void addListen(t_listen listen);
 };
 
 #endif
