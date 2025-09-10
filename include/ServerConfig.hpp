@@ -22,9 +22,6 @@ typedef struct s_listen
 
 class ServerConfig {
 	private:
-		std::string host_;
-		int port_;
-		int backlog_;
 		int buffer_size_;
 		std::string document_root_;
 		std::vector<LocationConfig> locations_; // Lista de locations
@@ -32,7 +29,7 @@ class ServerConfig {
 
 	public:
 		ServerConfig();
-		ServerConfig(const std::string& host, int port, int backlog, int buffer_size, const std::string& document_root);
+		ServerConfig(int buffer_size, const std::string& document_root);
 		ServerConfig(const ServerConfig& other);
 		ServerConfig& operator=(const ServerConfig& other);
 		~ServerConfig();
