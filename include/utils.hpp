@@ -17,7 +17,10 @@
 
 namespace utils {
 
-    int respondGet(int client_fd, const HttpRequest &http_request, bool &keep_alive);
+    void printLocation(const LocationConfig *location);
+
+    int respondGet(int client_fd, const HttpRequest &http_request, HttpResponse &http_response, bool &keep_alive);
+    int respondPost(int client_fd, const HttpRequest &http_request, HttpResponse &http_response, bool &keep_alive);
     int	respond(int client_fd, const HttpRequest &http_request, ServerConfig &serverOne, bool &keep_alive);
 
     const LocationConfig* locationMatchforRequest(const std::string &request_path, const std::vector<LocationConfig> &locations);

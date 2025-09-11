@@ -1,7 +1,7 @@
 #include "../include/HttpResponse.hpp"
 
 HttpResponse::HttpResponse()
-    : version_(), status_code_(0), status_message_(), headers_(), body_(), content_type_() {}
+    : version_("HTTP/1.1"), status_code_(0), status_message_(), headers_(), body_(), content_type_() {}
 
 HttpResponse::HttpResponse(const HttpResponse& other)
     : version_(other.version_), status_code_(other.status_code_),
@@ -111,8 +111,6 @@ void HttpResponse::set200(std::ifstream &file) {
 
 void HttpResponse::buildResponse(std::string path) {
 
-    this->setVersion("HTTP/1.1");
-    this->setContentType(path);
     std::ifstream file(path.c_str());
     
     if (!file)
