@@ -110,6 +110,11 @@ void HttpResponse::set200(std::ifstream &file) {
     this->setHeaders(responseHeaders);
 }
 
+void HttpResponse::forceConnectionClose() {
+    std::map<std::string, std::string> headers = this->getHeaders();
+    headers["Connection"] = "close";
+    this->setHeaders(headers);
+}
 
 void HttpResponse::buildResponse(std::string path) {
 

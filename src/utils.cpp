@@ -85,15 +85,18 @@ int respond(int client_fd, const HttpRequest &http_request, ServerConfig &server
     }
     else if (method == "POST")
     {
-        std::cout << "Method post" << std::endl;
-        if (isMethodAllowed(requestLocation->getMethods(), "POST"))
-            return respondPost(client_fd, http_request, http_response, keep_alive);
-        else
-        {
-            http_response.setError("var/www/html/405MethodNotAllowed.html", 405, "Method Not Allowed");
-            http_response.respondInClient(client_fd);
-            return (1);
-        }
+        const char* response =
+        "HTTP/1.1 200 OK\r\n"
+        "Content-Type: text/html\r\n"
+        "Content-Length: 71\r\n"
+        "Connection: close\r\n"
+        "\r\n"
+        "<!DOCTYPE html><html><body><h1>Form recibido correctamente</h1></body></html>";
+
+        send(client_fd, response, strlen(response), 0);
+        keep_alive = false;
+
+        return 0;
     }
     else if (method == "DELETE") {
         // manejar DELETE
@@ -141,7 +144,7 @@ void hardcodeMultipleLocServer(ServerConfig &server)
     loc_root.setPath("/");
     std::vector<std::string> root_methods;
     root_methods.push_back("GET");
-    //root_methods.push_back("POST");
+    root_methods.push_back("POST");
     loc_root.setMethods(root_methods);
     loc_root.setAutoIndex(false);
 
@@ -157,9 +160,17 @@ void hardcodeMultipleLocServer(ServerConfig &server)
     LocationConfig loc_upload;
     loc_upload.setPath("/upload/");
     std::vector<std::string> upload_methods;
-    //upload_methods.push_back("POST");
+    upload_methods.push_back("POST");
     loc_upload.setMethods(upload_methods);
     loc_upload.setAutoIndex(false);
+
+    // Location "/form_result/"
+    LocationConfig loc_form;
+    loc_form.setPath("/form_result/");
+    std::vector<std::string> form_methods;
+    upload_methods.push_back("POST");
+    loc_form.setMethods(form_methods);
+    loc_form.setAutoIndex(false);
 
     // Add locations to server object
     std::vector<LocationConfig> locations;
