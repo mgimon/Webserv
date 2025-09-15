@@ -15,7 +15,7 @@
 
 typedef struct s_listen
 {
-	std::string ip;
+	std::string host;
 	int port;
 	int backlog;
 }	t_listen;
@@ -34,17 +34,11 @@ class ServerConfig {
 		ServerConfig& operator=(const ServerConfig& other);
 		~ServerConfig();
 
-		std::string getHost() const;
-		int getPort() const;
-		int getBacklog() const;
 		int getBufferSize() const;
 		std::string getDocumentRoot() const;
 		std::vector<LocationConfig> getLocations() const;
 		std::vector<t_listen> getListens() const;
 
-		void setHost(const std::string& host);
-		void setPort(int ports);
-		void setBacklog(int backlog);
 		void setBufferSize(int buffer_size);
 		void setDocumentRoot(const std::string& document_root);
 		void setLocations(const std::vector<LocationConfig>& locations);
