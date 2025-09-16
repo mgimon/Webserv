@@ -9,8 +9,9 @@ int status = 0;
 int main() {
 
     /*** PARSEO ***/
-    // hardcodear atributos de objeto serverList para poder ir trabajando
-    std::vector<ServerConfig>   serverList;
+    //std::vector<ServerConfig>   serverList;
+    ServerConfig serverOne;
+    utils::hardcodeMultipleLocServer(serverOne); // hardcodear atributos de un objeto servidor para poder ir trabajando
 
     /*** GESTION DE CONEXIONES ***/
     // multiples clientes (poll/epoll ?)
@@ -21,7 +22,7 @@ int main() {
     sockaddr_in addr = {};
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = INADDR_ANY;
-    addr.sin_port = htons(8080);
+    addr.sin_port = htons(serverOne.getPort());
 
     bind(server_fd, (sockaddr*)&addr, sizeof(addr));
     listen(server_fd, 1); // backlog
@@ -34,7 +35,7 @@ int main() {
     {
         HttpRequest http_request(client_fd);
         http_request.printRequest();
-        status = utils::respond(client_fd, http_request, keep_alive);
+        status = utils::respond(client_fd, http_request, serverOne, keep_alive);
         if (!keep_alive)
             break;
     }

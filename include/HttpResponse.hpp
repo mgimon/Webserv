@@ -49,6 +49,7 @@ class HttpResponse {
 		void set200(std::ifstream &file);
 
 		void buildResponse(std::string path);
+		void forceConnectionClose();
 		void respondInClient(int client_fd);
 };
 
