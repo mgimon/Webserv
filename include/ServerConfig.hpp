@@ -10,8 +10,12 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 #include "LocationConfig.hpp"
+#include "HttpRequest.hpp"
+#include "HttpResponse.hpp"
+//#include "utils.hpp"
 
 typedef struct s_listen
 {
@@ -36,7 +40,7 @@ class ServerConfig {
 
 		int getBufferSize() const;
 		std::string getDocumentRoot() const;
-		std::vector<LocationConfig> getLocations() const;
+		const std::vector<LocationConfig> &getLocations() const;
 		std::vector<t_listen> getListens() const;
 
 		void setBufferSize(int buffer_size);

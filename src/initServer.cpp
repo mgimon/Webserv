@@ -1,4 +1,5 @@
 #include "../include/initServer.hpp"
+#include "../include/utils.hpp"
 #include "../include/utilsCC.hpp"
 
 addrinfo *getAddrinfoList(t_listen listen)
@@ -34,7 +35,7 @@ int createListenSocket(t_listen listen_conf)
 			continue;
 		if (setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, &option, sizeof(option)) == -1) // Permitimos que otro progarma pueda usar el puerto mientars el socket se esta cerrando
 			continue;
-		if (fcntl() == -1)
+		//if (fcntl() == -1)
 		if (bind(socket_fd, node->ai_addr, node->ai_addrlen) == 0) // Assignamos la configuracion al socket
 			break;
 		close(socket_fd);
@@ -78,19 +79,20 @@ void initServer(std::vector<ServerConfig> &serverList)
 	std::vector<int> listenSockets = loadListenSockets(serverList);
 	sockaddr client_addr;
 	socklen_t client_addr_size = sizeof(client_addr);
+	ServerConfig serverPrueba = serverList[0];
+	utils::hardcodeMultipleLocServer(serverPrueba);
 	
 	while(true)
 	{
+		bool keep_alive = true;
 		int client_fd = accept(listenSockets[0], &client_addr, &client_addr_size);
 		if (client_fd == -1)
 			throw std::runtime_error("Accept failed");
-		
-		char buffer[1024];
-        int bytes_read = recv(client_fd, buffer, 1024, 0);
-        if (bytes_read > 0) {
-            std::cout << "Received: " << std::string(buffer, bytes_read) << std::endl;
-        }
 
+		HttpRequest http_request(client_fd);
+		http_request.printRequest();
+		utils::respond(client_fd, http_request, serverPrueba, keep_alive);
+		
         close(client_fd);
         std::cout << "Closed client fd: " << client_fd << std::endl;
     }

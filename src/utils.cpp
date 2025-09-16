@@ -134,9 +134,15 @@ int respondPost(int client_fd, const HttpRequest &http_request, HttpResponse &ht
 
 void hardcodeMultipleLocServer(ServerConfig &server)
 {
+    //server.setHost("0.0.0.0");
+    //server.setPort(8080);
 
-    server.setHost("0.0.0.0");
-    server.setPort(8080);
+    t_listen listenOne;
+    listenOne.host = "0.0.0.0";
+    listenOne.port = 8080;
+    listenOne.backlog = 128;
+
+    server.addListen(listenOne);
     server.setDocumentRoot("/var/www/html");
 
     // Location "/"

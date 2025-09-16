@@ -73,15 +73,11 @@ void HttpResponse::setError(const std::string &filepath, int statusCode, const s
     }
     else
     {
-<<<<<<< HEAD
-        std::string errorbackup = "<html><body><h1>" /*+ statusCode*/ + error_msg + "</h1></body></html>";
-=======
+
         //std::string errorbackup = "<html><body><h1>" + statusCode + error_msg + "</h1></body></html>";
         std::ostringstream oss_code;
         oss_code << statusCode;
         std::string errorbackup = "<html><body><h1>" + oss_code.str() + " " + error_msg + "</h1></body></html>";
-
->>>>>>> mgimon-c
 
         this->setBody(errorbackup);
         std::ostringstream oss;
