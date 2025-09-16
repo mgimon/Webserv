@@ -1,7 +1,7 @@
 #include "../include/HttpResponse.hpp"
 
 HttpResponse::HttpResponse()
-    : version_(), status_code_(0), status_message_(), headers_(), body_(), content_type_() {}
+    : version_("HTTP/1.1"), status_code_(0), status_message_(), headers_(), body_(), content_type_() {}
 
 HttpResponse::HttpResponse(const HttpResponse& other)
     : version_(other.version_), status_code_(other.status_code_),
@@ -36,20 +36,18 @@ void HttpResponse::setBody(const std::string& body) { body_ = body; }
 
 void HttpResponse::setContentType(const std::string &path)
 {
-    if (path.size() >= 5 && path.substr(path.size() - 5) == ".html")
-        this->content_type_ = "text/html";
-    else if (path.size() >= 4 && path.substr(path.size() - 4) == ".css")
-        this->content_type_ = "text/css";
-    else if (path.size() >= 3 && path.substr(path.size() - 3) == ".js")
-        this->content_type_ = "application/javascript";
-    else if (path.size() >= 4 && path.substr(path.size() - 4) == ".png")
-        this->content_type_ = "image/png";
-    else if (path.size() >= 4 && path.substr(path.size() - 4) == ".jpg")
-        this->content_type_ = "image/jpeg";
-    else if (path.size() >= 5 && path.substr(path.size() - 5) == ".jpeg")
-        this->content_type_ = "image/jpeg";
+    if (path.rfind(".html") != std::string::npos)
+        content_type_ = "text/html";
+    else if (path.rfind(".css") != std::string::npos)
+        content_type_ = "text/css";
+    else if (path.rfind(".js") != std::string::npos)
+        content_type_ = "application/javascript";
+    else if (path.rfind(".png") != std::string::npos)
+        content_type_ = "image/png";
+    else if (path.rfind(".jpg") != std::string::npos || path.rfind(".jpeg") != std::string::npos)
+        content_type_ = "image/jpeg";
     else
-        this->content_type_ = "text/plain";
+        content_type_ = "text/plain";
 }
 
 
@@ -75,7 +73,15 @@ void HttpResponse::setError(const std::string &filepath, int statusCode, const s
     }
     else
     {
+<<<<<<< HEAD
         std::string errorbackup = "<html><body><h1>" /*+ statusCode*/ + error_msg + "</h1></body></html>";
+=======
+        //std::string errorbackup = "<html><body><h1>" + statusCode + error_msg + "</h1></body></html>";
+        std::ostringstream oss_code;
+        oss_code << statusCode;
+        std::string errorbackup = "<html><body><h1>" + oss_code.str() + " " + error_msg + "</h1></body></html>";
+
+>>>>>>> mgimon-c
 
         this->setBody(errorbackup);
         std::ostringstream oss;
@@ -108,11 +114,14 @@ void HttpResponse::set200(std::ifstream &file) {
     this->setHeaders(responseHeaders);
 }
 
+void HttpResponse::forceConnectionClose() {
+    std::map<std::string, std::string> headers = this->getHeaders();
+    headers["Connection"] = "close";
+    this->setHeaders(headers);
+}
 
 void HttpResponse::buildResponse(std::string path) {
 
-    this->setVersion("HTTP/1.1");
-    this->setContentType(path);
     std::ifstream file(path.c_str());
     
     if (!file)

@@ -1,7 +1,7 @@
 #include "../include/LocationConfig.hpp"
 
 /** CANONICAL **/
-LocationConfig::LocationConfig() : path_("/"), autoindex_(false), root_override_("") { methods_.push_back("GET"); }
+LocationConfig::LocationConfig() : path_("/"), autoindex_(false), root_override_("") {}
 LocationConfig::LocationConfig(const std::string& path, const std::vector<std::string>& methods, bool autoindex, const std::string& root_override) : path_(path), methods_(methods), autoindex_(autoindex), root_override_(root_override) {}
 LocationConfig::LocationConfig(const LocationConfig& other) : path_(other.path_), methods_(other.methods_), autoindex_(other.autoindex_), root_override_(other.root_override_) {}
 LocationConfig& LocationConfig::operator=(const LocationConfig& other) {
