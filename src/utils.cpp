@@ -86,7 +86,7 @@ int respond(int client_fd, const HttpRequest &http_request, ServerConfig &server
     else if (method == "POST")
     {
         const char* response =
-        "HTTP/1.1 200 OK\r\n"
+        "HTTP/1.1 201 OK\r\n"
         "Content-Type: text/html\r\n"
         "Content-Length: 71\r\n"
         "Connection: close\r\n"
