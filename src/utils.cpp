@@ -63,7 +63,7 @@ void handleKeepAlive(const HttpRequest &http_request, bool &keep_alive, HttpResp
 }
 
 // Debe incluir gestion de CGI
-int respond(int client_fd, const HttpRequest &http_request, ServerConfig &serverOne, bool &keep_alive)
+int respond(int &client_fd, const HttpRequest &http_request, ServerConfig &serverOne, int listenSocket, bool &keep_alive)
 {
     HttpResponse http_response;
     const std::string &method = http_request.getMethod();
@@ -85,18 +85,30 @@ int respond(int client_fd, const HttpRequest &http_request, ServerConfig &server
     }
     else if (method == "POST")
     {
-        const char* response =
+        /*const char* response =
         "HTTP/1.1 201 OK\r\n"
         "Content-Type: text/html\r\n"
         "Content-Length: 71\r\n"
         "Connection: close\r\n"
         "\r\n"
-        "<!DOCTYPE html><html><body><h1>Form recibido correctamente</h1></body></html>";
+        "<!DOCTYPE html><html><body><h1>Form recibido correctamente</h1></body></html>";*/
+
+        const char* response =
+        "HTTP/1.1 303 See Other\r\n"
+        "Location: /form_result.html\r\n"
+        "Connection: close\r\n"
+        "\r\n";
+
+        close(client_fd);
+        sockaddr client_addr;
+	    socklen_t client_addr_size = sizeof(client_addr);
+        client_fd = accept(listenSocket, &client_addr, &client_addr_size);
 
         send(client_fd, response, strlen(response), 0);
         keep_alive = false;
 
         return 0;
+
     }
     else if (method == "DELETE") {
         // manejar DELETE

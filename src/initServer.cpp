@@ -91,7 +91,7 @@ void initServer(std::vector<ServerConfig> &serverList)
 
 		HttpRequest http_request(client_fd);
 		http_request.printRequest();
-		utils::respond(client_fd, http_request, serverPrueba, keep_alive);
+		utils::respond(client_fd, http_request, serverPrueba, listenSockets[0], keep_alive);
 		
         close(client_fd);
         std::cout << "Closed client fd: " << client_fd << std::endl;
