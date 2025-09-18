@@ -105,7 +105,7 @@ int respond(int &client_fd, const HttpRequest &http_request, ServerConfig &serve
         client_fd = accept(listenSocket, &client_addr, &client_addr_size);
 
         send(client_fd, response, strlen(response), 0);
-        keep_alive = false;
+        keep_alive = true;
 
         return 0;
 
@@ -186,7 +186,7 @@ void hardcodeMultipleLocServer(ServerConfig &server)
     LocationConfig loc_form;
     loc_form.setPath("/form_result/");
     std::vector<std::string> form_methods;
-    upload_methods.push_back("POST");
+    form_methods.push_back("POST");
     loc_form.setMethods(form_methods);
     loc_form.setAutoIndex(false);
 
@@ -195,6 +195,7 @@ void hardcodeMultipleLocServer(ServerConfig &server)
     locations.push_back(loc_root);
     locations.push_back(loc_images);
     locations.push_back(loc_upload);
+    locations.push_back(loc_form);
     server.setLocations(locations);
 
 }
