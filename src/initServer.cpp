@@ -82,7 +82,7 @@ std::vector<t_socket> loadListenSockets(std::vector<ServerConfig> &serverList)
 				closeListenSockets(listenSockets);
 				throw;
 			}
-		}
+	}
 	}
 	return(listenSockets);
 }
@@ -140,7 +140,7 @@ void initServer(std::vector<ServerConfig> &serverList)
 				close(client_fd);
 				break;
 			}
-			std::vector<t_socket> clientSockets;
+			std::vector<t_socket> clientSockets; //Añadir HttpRequest a la struct socket y HttpRespond
 		}
 		else
 		{	
