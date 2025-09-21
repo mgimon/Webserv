@@ -8,10 +8,10 @@ std::string to_stringCC(int num)
 	return(ss.str());
 }
 
-void closeListenSockets(std::vector<int> &listenSockets)
+void closeListenSockets(std::vector<t_socket> &listenSockets)
 {
-	for (std::vector<int>::iterator it = listenSockets.begin(); it != listenSockets.end(); ++it)
-		close(*it);
+	for (std::vector<t_socket>::iterator it = listenSockets.begin(); it != listenSockets.end(); ++it)
+		close(it->socket_fd);
 	
 }
 
