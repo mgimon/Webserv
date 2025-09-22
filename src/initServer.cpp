@@ -140,7 +140,7 @@ void initServer(std::vector<ServerConfig> &serverList)
 				close(client_fd);
 				break;
 			}
-			std::vector<t_socket> clientSockets; //Añadir HttpRequest a la struct socket y HttpRespond
+			std::vector<t_socket> clientSockets; //Añadir cliente
 		}
 		else
 		{	
