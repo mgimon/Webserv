@@ -112,13 +112,12 @@ int init_epoll(std::list<t_socket> &listenSockets)
 /*void initServer(std::vector<ServerConfig> &serverList)
 {
 	std::vector<t_socket> listenSockets = loadListenSockets(serverList);
-	std::vector<t_socket> clientSockets;
+	std::map<int ,t_socket> clientSockets;
 	epoll_event event;
 	//ServerConfig serverPrueba = serverList[0];
 	//utils::hardcodeMultipleLocServer(serverPrueba);
 	
 	int epoll_fd = init_epoll(listenSockets);
-	
 	while(true)
 	{
 		epoll_wait(epoll_fd, &event, 1, -1);
@@ -128,20 +127,18 @@ int init_epoll(std::list<t_socket> &listenSockets)
 			sockaddr client_addr;
 			socklen_t client_addr_size = sizeof(client_addr);
 			int client_fd = accept(socket->socket_fd, &client_addr, &client_addr_size);
+
+			if (client_fd == -1 && (errno == EAGAIN || errno == EWOULDBLOCK))
+				continue;
 			if (client_fd == -1)
-			{
-				perror("accept");
-				continue; // no abortes el loop entero
-			}
-
-			// Guarda el cliente en el vector global (de arriba, fuera del while)
-			clientSockets.push_back((t_socket){client_fd, socket->server, CLIENT_SOCKET});
-			t_socket* client_ptr = &clientSockets.back();
-
-			// Registra el cliente en epoll
+				break;
+			
+			t_socket client_socket = {client_fd, socket->server, CLIENT_SOCKET};
+			std::map<int ,t_socket>::iterator it = clientSockets.insert(std::make_pair(client_fd, client_socket)).first; // Crear t_socket y meterlo en un map de clientes
+			
 			epoll_event ev;
 			ev.events = EPOLLIN;
-			ev.data.ptr = client_ptr;
+			ev.data.ptr = &(it->second);
 			if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client_fd, &ev) == -1)
 			{
 				perror("epoll_ctl add client");
@@ -157,7 +154,7 @@ int init_epoll(std::list<t_socket> &listenSockets)
 			
 			// Disconect client
 			// epoll_ctl(epoll_fd, EPOLL_CTL_DEL, socket->socket_fd, &ev)
-			// clientSockets.delete()
+			// clientSockets.erase(socket->socket_fd);
 			// close(socket->socket_fd);
 		}
 	}
