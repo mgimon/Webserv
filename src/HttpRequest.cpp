@@ -34,6 +34,7 @@ void HttpRequest::printRequest() const {
         std::cout << GREEN << "    " << this->getBody() << RESET << std::endl;
 }
 
+
 void HttpRequest::parseRequest(const std::string &str)
 {
     std::istringstream stream(str);

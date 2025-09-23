@@ -8,12 +8,12 @@ std::string to_stringCC(int num)
 	return(ss.str());
 }
 
-void closeListenSockets(std::vector<t_socket> &listenSockets)
+void closeListenSockets(std::list<t_socket> &listenSockets)
 {
-	for (std::vector<t_socket>::iterator it = listenSockets.begin(); it != listenSockets.end(); ++it)
-		close(it->socket_fd);
-	
+    for (std::list<t_socket>::iterator it = listenSockets.begin(); it != listenSockets.end(); ++it)
+        close(it->socket_fd);
 }
+
 
 /*std::vector<t_listen> getValidListens(const std::vector<ServerConfig> &serverList)
 {

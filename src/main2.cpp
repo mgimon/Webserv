@@ -10,6 +10,7 @@ int main() {
 
 	//server.addListen((t_listen){ "127.0.0.1", 8080, 128});
 	utils::hardcodeMultipleLocServer(server);
+
 	serverList.push_back(server);
 
 	try

@@ -43,8 +43,10 @@ void validatePathWithIndex(std::string &path)
 // Debe incluir gestion de CGI
 int respond(int client_fd, const HttpRequest &http_request, ServerConfig &serverOne)
 {
-    HttpResponse http_response;
+    HttpResponse    http_response;
     const std::string &method = http_request.getMethod();
+    std::cout << "DEBUG: server locations passed to respond = " << serverOne.getLocations().size() << std::endl;
+
     const LocationConfig *requestLocation = locationMatchforRequest(http_request.getPath(), serverOne.getLocations());
 
     printLocation(requestLocation);
@@ -53,7 +55,11 @@ int respond(int client_fd, const HttpRequest &http_request, ServerConfig &server
     {
         std::cout << "Method get" << std::endl;
         if (requestLocation && isMethodAllowed(requestLocation->getMethods(), "GET"))
-            return respondGet(client_fd, http_request, http_response);
+        {
+            std::string path = http_request.getPath();
+            utils::validatePathWithIndex(path);
+            return respondGet(client_fd, path, http_request, http_response);
+        }
         else
         {
             http_response.setError("var/www/html/405MethodNotAllowed.html", 405, "Method Not Allowed");
@@ -86,11 +92,9 @@ int respond(int client_fd, const HttpRequest &http_request, ServerConfig &server
     }
 }
 
-int respondGet(int client_fd, const HttpRequest &http_request, HttpResponse &http_response)
+int respondGet(int client_fd, std::string path, const HttpRequest &http_request, HttpResponse &http_response)
 {
     int keep_alive = 0;
-    std::string path = http_request.getPath();
-    validatePathWithIndex(path);
 
     http_response.buildResponse(path);
 
@@ -155,7 +159,7 @@ void readFromSocket(t_socket *client_socket, int epoll_fd, std::list<t_socket> &
 
     if (bytesRead <= 0)
     {
-        // cliente cerro la conexion o error, cerrar socket
+        // cliente cerro la conexion o error -> cerrar socket
         epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_socket->socket_fd, NULL);
         close(client_socket->socket_fd);
         for (std::list<t_socket>::iterator it = clientSockets.begin(); it != clientSockets.end(); ++it)
@@ -169,7 +173,7 @@ void readFromSocket(t_socket *client_socket, int epoll_fd, std::list<t_socket> &
         return;
     }
 
-    // leido, append
+    // leido -> append
     client_socket->readBuffer.append(buf, bytesRead);
 }
 
@@ -237,15 +241,17 @@ const LocationConfig* locationMatchforRequest(const std::string &request_path, c
     for (size_t i = 0; i < locations.size(); i++)
     {
         const std::string &loc_path = locations[i].getPath();
-        if (request_path.find(loc_path) == 0) {
-            if (loc_path.size() > best_len) {
+        if (request_path.find(loc_path) == 0)
+        {
+            if (loc_path.size() > best_len)
+            {
                 best_len = loc_path.size();
                 best_match = &locations[i];
             }
         }
     }
 
-    return (best_match); // puede ser NULL si no hay match → usar defaults
+    return best_match;
 }
 
 
