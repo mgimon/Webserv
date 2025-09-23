@@ -64,7 +64,11 @@ void HttpRequest::readBody(int client_fd)
             ssize_t bytes_read;
             std::string saved = readUntilBody(client_fd, bytes_read);
             size_t pos = saved.find("\r\n\r\n");
-            std::string body_part = saved.substr(pos + 4);
+            std::string body_part;
+            if (pos != std::string::npos && pos + 4 <= saved.size())
+                body_part = saved.substr(pos + 4);
+            else
+                body_part.clear();
             body_ = body_part;
 
             // Resize
@@ -104,11 +108,13 @@ int HttpRequest::parseRequest(int client_fd)
 
     // Headers
     headers_.clear();
-    while (std::getline(rStream, line) && line != "\r") {
+    while (std::getline(rStream, line) && line != "\r")
+    {
         if (!line.empty() && line[line.size() - 1] == '\r')
             line.erase(line.size() - 1);
         size_t pos = line.find(':');
-        if (pos != std::string::npos) {
+        if (pos != std::string::npos)
+        {
             std::string key = line.substr(0, pos);
             std::string value = line.substr(pos + 1);
             // limpiar espacios al inicio

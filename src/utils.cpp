@@ -2,7 +2,35 @@
 
 namespace utils {
 
-void validatePath(std::string &path)
+void printLocation(const LocationConfig *location)
+{
+    if (location) {
+    const std::vector<std::string> &methods = location->getMethods();
+    std::string methods_str = methods.empty() ? "none" : methods[0];
+    for (size_t i = 1; i < methods.size(); ++i)
+        methods_str += ", " + methods[i];
+
+    std::cout << YELLOW
+              << "Matched Location -> Path: " << location->getPath()
+              << " | Methods: " << methods_str
+              << " | AutoIndex: " << (location->getAutoIndex() ? "true" : "false")
+              << RESET << std::endl;
+    } else {
+        std::cout << YELLOW << "No matching location found." << RESET << std::endl;
+    }
+}
+
+bool isMethodAllowed(const std::vector<std::string> &methods, const std::string &method)
+{
+    for (size_t i = 0; i < methods.size(); ++i)
+    {
+        if (method == methods[i])
+            return (true);
+    }
+    return (false);
+}
+
+void validatePathWithIndex(std::string &path)
 {
     if (path.empty() || path == "/")
         path = "index.html";
@@ -35,17 +63,40 @@ void handleKeepAlive(const HttpRequest &http_request, bool &keep_alive, HttpResp
 }
 
 // Debe incluir gestion de CGI
-int respond(int client_fd, const HttpRequest &http_request, bool &keep_alive) {
+int respond(int client_fd, const HttpRequest &http_request, ServerConfig &serverOne, bool &keep_alive)
+{
+    HttpResponse http_response;
     const std::string &method = http_request.getMethod();
+    const LocationConfig *requestLocation = locationMatchforRequest(http_request.getPath(), serverOne.getLocations());
 
-    if (method == "GET") {
+    printLocation(requestLocation);
+
+    if (method == "GET")
+    {
         std::cout << "Method get" << std::endl;
-        return respondGet(client_fd, http_request, keep_alive);
+        if (isMethodAllowed(requestLocation->getMethods(), "GET"))
+            return respondGet(client_fd, http_request, http_response, keep_alive);
+        else
+        {
+            http_response.setError("var/www/html/405MethodNotAllowed.html", 405, "Method Not Allowed");
+            http_response.respondInClient(client_fd);
+            return (1);
+        }
     }
-    else if (method == "POST") {
-        // manejar POST
-        std::cout << "Method post" << std::endl;
-        return (0);
+    else if (method == "POST")
+    {
+        const char* response =
+        "HTTP/1.1 201 OK\r\n"
+        "Content-Type: text/html\r\n"
+        "Content-Length: 71\r\n"
+        "Connection: close\r\n"
+        "\r\n"
+        "<!DOCTYPE html><html><body><h1>Form recibido correctamente</h1></body></html>";
+
+        send(client_fd, response, strlen(response), 0);
+        keep_alive = false;
+
+        return 0;
     }
     else if (method == "DELETE") {
         // manejar DELETE
@@ -59,24 +110,39 @@ int respond(int client_fd, const HttpRequest &http_request, bool &keep_alive) {
     }
 }
 
-int respondGet(int client_fd, const HttpRequest &http_request, bool &keep_alive)
+int respondGet(int client_fd, const HttpRequest &http_request, HttpResponse &http_response, bool &keep_alive)
 {
-    HttpResponse respondTool;
     std::string path = http_request.getPath();
-    validatePath(path);
+    validatePathWithIndex(path);
 
-    respondTool.buildResponse(path);
-    handleKeepAlive(http_request, keep_alive, respondTool);
+    http_response.buildResponse(path);
+    handleKeepAlive(http_request, keep_alive, http_response);
 
-    respondTool.respondInClient(client_fd);
+    http_response.respondInClient(client_fd);
     return (0);
 }
 
-void hardcodeMultipleLocServer(std::vector<ServerConfig> &serverList) {
+int respondPost(int client_fd, const HttpRequest &http_request, HttpResponse &http_response, bool &keep_alive)
+{
+    (void)client_fd;
+    (void)http_request;
+    (void)http_response;
+    (void)keep_alive;
+    
+    return 0;
+}
 
-    ServerConfig server;
-    server.setHost("0.0.0.0");
-    server.setPort(8080);
+void hardcodeMultipleLocServer(ServerConfig &server)
+{
+    //server.setHost("0.0.0.0");
+    //server.setPort(8080);
+
+    t_listen listenOne;
+    listenOne.host = "0.0.0.0";
+    listenOne.port = 8080;
+    listenOne.backlog = 128;
+
+    server.addListen(listenOne);
     server.setDocumentRoot("/var/www/html");
 
     // Location "/"
@@ -104,6 +170,14 @@ void hardcodeMultipleLocServer(std::vector<ServerConfig> &serverList) {
     loc_upload.setMethods(upload_methods);
     loc_upload.setAutoIndex(false);
 
+    // Location "/form_result/"
+    LocationConfig loc_form;
+    loc_form.setPath("/form_result/");
+    std::vector<std::string> form_methods;
+    upload_methods.push_back("POST");
+    loc_form.setMethods(form_methods);
+    loc_form.setAutoIndex(false);
+
     // Add locations to server object
     std::vector<LocationConfig> locations;
     locations.push_back(loc_root);
@@ -111,10 +185,27 @@ void hardcodeMultipleLocServer(std::vector<ServerConfig> &serverList) {
     locations.push_back(loc_upload);
     server.setLocations(locations);
 
-    // Push server object into array
-    serverList.push_back(server);
-
 }
+
+const LocationConfig* locationMatchforRequest(const std::string &request_path, const std::vector<LocationConfig> &locations)
+{
+    const LocationConfig* best_match = NULL;
+    size_t best_len = 0;
+
+    for (size_t i = 0; i < locations.size(); i++)
+    {
+        const std::string &loc_path = locations[i].getPath();
+        if (request_path.find(loc_path) == 0) {
+            if (loc_path.size() > best_len) {
+                best_len = loc_path.size();
+                best_match = &locations[i];
+            }
+        }
+    }
+
+    return (best_match); // puede ser NULL si no hay match → usar defaults
+}
+
 
 
 }
