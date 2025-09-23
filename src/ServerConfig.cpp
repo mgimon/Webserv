@@ -3,7 +3,7 @@
 /** CANONICAL **/
 ServerConfig::ServerConfig() : buffer_size_(4096), document_root_("./") {}
 ServerConfig::ServerConfig(int buffer_size, const std::string& document_root) : buffer_size_(buffer_size), document_root_(document_root) {}
-ServerConfig::ServerConfig(const ServerConfig& other) : buffer_size_(other.buffer_size_), document_root_(other.document_root_), listens_(other.listens_) {}
+ServerConfig::ServerConfig(const ServerConfig& other) : buffer_size_(other.buffer_size_), document_root_(other.document_root_), locations_(other.locations_), listens_(other.listens_) {}
 ServerConfig& ServerConfig::operator=(const ServerConfig& other) {
     if (this != &other) {buffer_size_ = other.buffer_size_; document_root_ = other.document_root_; listens_ = other.listens_;}
     return *this;

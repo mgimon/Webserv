@@ -63,31 +63,31 @@ int createListenSocket(t_listen listen_conf)
 }
 
 
-std::vector<t_socket> loadListenSockets(std::vector<ServerConfig> &serverList)
+std::list<t_socket> loadListenSockets(std::vector<ServerConfig> &serverList)
 {
-	std::vector<t_socket> listenSockets;
-	for(std::vector<ServerConfig>::iterator serv_it = serverList.begin(); serv_it != serverList.end(); ++serv_it)
-	{
-		std::vector<t_listen> listens = serv_it->getListens();
-		for(std::vector<t_listen>::iterator list_it = listens.begin(); list_it != listens.end(); ++list_it)
-		{
-			try
-			{
-				int socket_fd = createListenSocket(*list_it);
-				t_socket socket = {socket_fd, *serv_it, LISTEN_SOCKET};
-				listenSockets.push_back(socket);
-			}
-			catch(const std::exception& e)
-			{
-				closeListenSockets(listenSockets);
-				throw;
-			}
-	}
-	}
-	return(listenSockets);
+    std::list<t_socket> listenSockets;
+    for (std::vector<ServerConfig>::iterator serv_it = serverList.begin(); serv_it != serverList.end(); ++serv_it)
+    {
+        std::vector<t_listen> listens = serv_it->getListens();
+        for (std::vector<t_listen>::iterator list_it = listens.begin(); list_it != listens.end(); ++list_it)
+        {
+            try
+            {
+                int socket_fd = createListenSocket(*list_it);
+                t_socket socket = {socket_fd, &(*serv_it), LISTEN_SOCKET, ""};
+                listenSockets.push_back(socket);
+            }
+            catch(const std::exception& e)
+            {
+                closeListenSockets(listenSockets);
+                throw;
+            }
+        }
+    }
+    return (listenSockets);
 }
 
-int init_epoll(std::vector<t_socket> &listenSockets)
+int init_epoll(std::list<t_socket> &listenSockets)
 {
 	int fd = epoll_create1(0);
 	if (fd == -1)
@@ -95,23 +95,21 @@ int init_epoll(std::vector<t_socket> &listenSockets)
 		closeListenSockets(listenSockets);
 		throw std::runtime_error("Epoll error"); //NOTA: Printar errno
 	}
-	for(std::vector<t_socket>::iterator it = listenSockets.begin(); it != listenSockets.end(); ++it)
-	{
-		epoll_event ev; 
-
-		//NOTA: MIRAR POSIBLE IMPLEMENTACION DE edge-triggered epoll(EPOLLET)
-		ev.events = EPOLLIN; // Para que epoll nos notifique cuando se intente leer del fd (aceptar una conexion cuenta como leer)
-		ev.data.ptr = &(*it);
-		if (epoll_ctl(fd, EPOLL_CTL_ADD, it->socket_fd, &ev) == -1) // Añadimos los sockets de escucha al epoll 
-		{
-			closeListenSockets(listenSockets);
-			throw std::runtime_error("Epoll ctl error"); //NOTA: Printar errno
-		}
-	}
+    for (std::list<t_socket>::iterator it = listenSockets.begin(); it != listenSockets.end(); ++it)
+    {
+        epoll_event ev;
+        ev.events = EPOLLIN;
+        ev.data.ptr = &(*it);
+        if (epoll_ctl(fd, EPOLL_CTL_ADD, it->socket_fd, &ev) == -1)
+        {
+            closeListenSockets(listenSockets);
+            throw std::runtime_error("Epoll ctl error");
+        }
+    }
 	return(fd);
 }
 
-void initServer(std::vector<ServerConfig> &serverList)
+/*void initServer(std::vector<ServerConfig> &serverList)
 {
 	std::vector<t_socket> listenSockets = loadListenSockets(serverList);
 	std::vector<t_socket> clientSockets;
@@ -130,20 +128,26 @@ void initServer(std::vector<ServerConfig> &serverList)
 			sockaddr client_addr;
 			socklen_t client_addr_size = sizeof(client_addr);
 			int client_fd = accept(socket->socket_fd, &client_addr, &client_addr_size);
-			// Gestion de errores del accept
-			
-			t_socket client_socket = {client_fd, socket->server, CLIENT_SOCKET};
+			if (client_fd == -1)
+			{
+				perror("accept");
+				continue; // no abortes el loop entero
+			}
+
+			// Guarda el cliente en el vector global (de arriba, fuera del while)
+			clientSockets.push_back((t_socket){client_fd, socket->server, CLIENT_SOCKET});
+			t_socket* client_ptr = &clientSockets.back();
+
+			// Registra el cliente en epoll
 			epoll_event ev;
 			ev.events = EPOLLIN;
-			ev.data.ptr = &client_socket ;  // Crear t_socket y meterlo en la lista de clientes
+			ev.data.ptr = client_ptr;
 			if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client_fd, &ev) == -1)
 			{
+				perror("epoll_ctl add client");
 				close(client_fd);
-				break;
+				clientSockets.pop_back();
 			}
-			// Anadir cliente
-			std::vector<t_socket> clientSockets;
-			clientSockets.push_back(client_socket);
 		}
 		else
 		{	
@@ -157,16 +161,114 @@ void initServer(std::vector<ServerConfig> &serverList)
 			// close(socket->socket_fd);
 		}
 	}
+}*/
+
+
+
+void initServer(std::vector<ServerConfig> &serverList)
+{
+    std::list<t_socket> listenSockets = loadListenSockets(serverList);
+    std::list<t_socket> clientSockets; // lista
+    epoll_event event;
+
+    int epoll_fd = init_epoll(listenSockets);
+
+    while (true)
+    {
+        int n = epoll_wait(epoll_fd, &event, 1, -1);
+        if (n == -1)
+        {
+            if (errno == EINTR)
+                continue;
+            perror("epoll_wait");
+            break;
+        }
+        if (n == 0)
+            continue;
+
+        t_socket *socket = static_cast<t_socket *>(event.data.ptr);
+        if (!socket)
+            continue;
+
+        if (socket->type == LISTEN_SOCKET)
+        {
+            sockaddr client_addr;
+            socklen_t client_addr_size = sizeof(client_addr);
+            int client_fd = accept(socket->socket_fd, &client_addr, &client_addr_size);
+            if (client_fd == -1)
+            {
+                perror("accept");
+                continue;
+            }
+
+            t_socket new_client = {client_fd, socket->server, CLIENT_SOCKET, ""};
+            clientSockets.push_back(new_client);
+            t_socket *client_ptr = &clientSockets.back(); // puntero estable
+            epoll_event ev;
+            ev.events = EPOLLIN | EPOLLHUP | EPOLLERR;
+            ev.data.ptr = client_ptr;
+            if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client_fd, &ev) == -1)
+            {
+                perror("epoll_ctl add client");
+                close(client_fd);
+                clientSockets.pop_back();
+                continue;
+            }
+        }
+        else
+        {
+            t_socket *client_socket = socket;
+
+            if (event.events & (EPOLLHUP | EPOLLERR))
+            {
+                int fd = client_socket->socket_fd;
+                epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, NULL);
+                close(fd);
+                for (std::list<t_socket>::iterator it = clientSockets.begin(); it != clientSockets.end(); ++it)
+                {
+                    if (&(*it) == client_socket)
+                    {
+                        clientSockets.erase(it);
+                        break;
+                    }
+                }
+                continue;
+            }
+
+			utils::readFromSocket(client_socket, epoll_fd, clientSockets);
+
+			if (utils::isCompleteRequest(client_socket->readBuffer))
+			{
+				// manejar petición HTTP
+				HttpRequest http_request(client_socket->readBuffer);
+				http_request.printRequest();
+
+				if (utils::respond(client_socket->socket_fd, http_request, *(client_socket->server)) == -1)
+				{
+					int fd = client_socket->socket_fd;
+					epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, NULL);
+					close(fd);
+					for (std::list<t_socket>::iterator it = clientSockets.begin(); it != clientSockets.end(); ++it)
+					{
+						if (&(*it) == client_socket)
+						{
+							clientSockets.erase(it);
+							break;
+						}
+					}
+				}
+				else
+					client_socket->readBuffer.clear();
+			}
+        }
+    }
+
+    // Cleanup
+    for (std::list<t_socket>::iterator it = listenSockets.begin(); it != listenSockets.end(); ++it)
+        close(it->socket_fd);
+
+    for (std::list<t_socket>::iterator it = clientSockets.begin(); it != clientSockets.end(); ++it)
+        close(it->socket_fd);
+
+    close(epoll_fd);
 }
-
-/*bool keep_alive = true;
-int client_fd = accept(listenSockets[0].socket_fd, &client_addr, &client_addr_size);
-if (client_fd == -1)
-	throw std::runtime_error("Accept failed");
-
-HttpRequest http_request(client_fd);
-http_request.printRequest();
-utils::respond(client_fd, http_request, serverPrueba, keep_alive);
-
-close(client_fd);
-std::cout << "Closed client fd: " << client_fd << std::endl;*/

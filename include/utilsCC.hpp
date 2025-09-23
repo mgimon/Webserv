@@ -1,7 +1,8 @@
 #pragma once
 
-#include "../include/ServerConfig.hpp"
+#include <list>
 #include "../include/initServer.hpp"
+#include "../include/ServerConfig.hpp"
 
 std::string to_stringCC(int num);
-void closeListenSockets(std::vector<t_socket> &listenSockets);
+void closeListenSockets(std::list<t_socket> &listenSockets);

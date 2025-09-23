@@ -9,7 +9,7 @@ SRCS = main2.cpp utils.cpp utilsCC.cpp \
 		ServerConfig.cpp \
 		HttpRequest.cpp \
 		HttpResponse.cpp \
-		initServer.cpp 
+		initServer.cpp
 
 OBJS = $(SRCS:.cpp=.o)
 INCLUDES = -I $(INC_DIR)
