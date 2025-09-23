@@ -132,15 +132,17 @@ void initServer(std::vector<ServerConfig> &serverList)
 			int client_fd = accept(socket->socket_fd, &client_addr, &client_addr_size);
 			// Gestion de errores del accept
 			
+			t_socket client_socket = {client_fd, socket->server, CLIENT_SOCKET};
 			epoll_event ev;
 			ev.events = EPOLLIN;
-			//ev.data.ptr = t_socket*(client_fd, socket->server, CLIENT_SOCKET);  //Crear t_socket y meterlo en la lista de clientes
+			ev.data.ptr = &client_socket ;  // Crear t_socket y meterlo en la lista de clientes
 			if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client_fd, &ev) == -1)
 			{
 				close(client_fd);
 				break;
 			}
-			std::vector<t_socket> clientSockets; //Añadir HttpRequest a la struct socket y HttpRespond
+			std::vector<t_socket> clientSockets; // Añadir HttpRequest a la struct socket y HttpRespond
+			clientSockets.push_back(client_socket);
 		}
 		else
 		{	
