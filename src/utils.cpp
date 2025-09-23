@@ -74,7 +74,7 @@ int respond(int client_fd, const HttpRequest &http_request, ServerConfig &server
     if (method == "GET")
     {
         std::cout << "Method get" << std::endl;
-        if (isMethodAllowed(requestLocation->getMethods(), "GET"))
+        if (requestLocation && isMethodAllowed(requestLocation->getMethods(), "GET"))
             return respondGet(client_fd, http_request, http_response, keep_alive);
         else
         {

@@ -114,13 +114,12 @@ int init_epoll(std::vector<t_socket> &listenSockets)
 void initServer(std::vector<ServerConfig> &serverList)
 {
 	std::vector<t_socket> listenSockets = loadListenSockets(serverList);
-	std::vector<t_socket> clientSockets;
+	std::map<int ,t_socket> clientSockets;
 	epoll_event event;
 	//ServerConfig serverPrueba = serverList[0];
 	//utils::hardcodeMultipleLocServer(serverPrueba);
 	
 	int epoll_fd = init_epoll(listenSockets);
-	
 	while(true)
 	{
 		epoll_wait(epoll_fd, &event, 1, -1);
@@ -130,19 +129,22 @@ void initServer(std::vector<ServerConfig> &serverList)
 			sockaddr client_addr;
 			socklen_t client_addr_size = sizeof(client_addr);
 			int client_fd = accept(socket->socket_fd, &client_addr, &client_addr_size);
-			// Gestion de errores del accept
+			if (client_fd == -1 && (errno == EAGAIN || errno == EWOULDBLOCK))
+				continue;
+			if (client_fd == -1)
+				break;
 			
 			t_socket client_socket = {client_fd, socket->server, CLIENT_SOCKET};
+			std::map<int ,t_socket>::iterator it = clientSockets.insert(std::make_pair(client_fd, client_socket)).first; // Crear t_socket y meterlo en un map de clientes
+			
 			epoll_event ev;
 			ev.events = EPOLLIN;
-			ev.data.ptr = &client_socket ;  // Crear t_socket y meterlo en la lista de clientes
+			ev.data.ptr = &(it->second);
 			if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client_fd, &ev) == -1)
 			{
 				close(client_fd);
 				break;
 			}
-			std::vector<t_socket> clientSockets; // Añadir HttpRequest a la struct socket y HttpRespond
-			clientSockets.push_back(client_socket);
 		}
 		else
 		{	
@@ -152,10 +154,11 @@ void initServer(std::vector<ServerConfig> &serverList)
 			
 			// Disconect client
 			// epoll_ctl(epoll_fd, EPOLL_CTL_DEL, socket->socket_fd, &ev)
-			// clientSockets.delete()
+			// clientSockets.erase(socket->socket_fd);
 			// close(socket->socket_fd);
 		}
 	}
+	//Clean server
 }
 
 /*bool keep_alive = true;
