@@ -17,6 +17,7 @@ typedef struct s_socket
 	int				socket_fd;
 	ServerConfig	&server;
 	SocketType 		type;
+	std::string		readBuffer;
 }	t_socket;
 
 void initServer(std::vector<ServerConfig> &serverList);

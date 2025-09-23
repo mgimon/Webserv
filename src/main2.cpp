@@ -1,5 +1,6 @@
 #include "../include/ServerConfig.hpp"
 #include "../include/initServer.hpp"
+#include "../include/utils.hpp"
 
 int main() {
 	
@@ -7,7 +8,8 @@ int main() {
 	ServerConfig server;
 	ServerConfig server2;
 
-	server.addListen((t_listen){ "127.0.0.1", 8080, 128});
+	//server.addListen((t_listen){ "127.0.0.1", 8080, 128});
+	utils::hardcodeMultipleLocServer(server);
 	serverList.push_back(server);
 
 	try
@@ -19,6 +21,7 @@ int main() {
 		std::cerr << e.what() << std::endl;
 		return(EXIT_FAILURE);
 	}
+
 	return(EXIT_SUCCESS);
 
 }
