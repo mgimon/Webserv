@@ -12,6 +12,7 @@
 #include <unistd.h>
 #include <map>
 #include <cstdlib>
+#include <algorithm>
 
 #include "macros.hpp"
 
@@ -26,7 +27,7 @@ class HttpRequest {
 
     public:
         HttpRequest();
-        HttpRequest(int client_fd);
+        HttpRequest(const std::string& str);
         HttpRequest(const HttpRequest& other);
         HttpRequest& operator=(const HttpRequest& other);
         ~HttpRequest();
@@ -43,9 +44,8 @@ class HttpRequest {
         void setHeaders(const std::map<std::string, std::string>& headers);
         void setBody(const std::string& body);
 
-        void readBody(int client_fd);
-        int parseRequest(int client_fd);
         void printRequest() const;
+        void parseRequest(const std::string &str);
 };
 
 #endif
