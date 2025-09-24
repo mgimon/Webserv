@@ -14,6 +14,13 @@ void closeListenSockets(std::list<t_socket> &listenSockets)
         close(it->socket_fd);
 }
 
+void closeServer(int epoll_fd, std::map<int, t_socket> &clientSockets, std::list<t_socket> &listenSockets)
+{
+	closeListenSockets(listenSockets); // NOTA: CONVERTIR FUNCTION EN TEMPLATE
+	for (std::map<int, t_socket>::iterator it = clientSockets.begin(); it != clientSockets.end(); ++it)
+		close(it->second.socket_fd);
+	close(epoll_fd);
+}
 
 /*std::vector<t_listen> getValidListens(const std::vector<ServerConfig> &serverList)
 {

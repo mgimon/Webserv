@@ -6,6 +6,7 @@
 #include <map>
 #include <fcntl.h>
 #include <sys/epoll.h>
+#include <errno.h>
 
 enum SocketType 
 {
@@ -16,7 +17,7 @@ enum SocketType
 typedef struct s_socket
 {
 	int				socket_fd;
-	ServerConfig	*server;
+	ServerConfig	&server;
 	SocketType 		type;
 	std::string		readBuffer;
 }	t_socket;
