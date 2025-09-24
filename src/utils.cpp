@@ -152,7 +152,7 @@ bool isCompleteRequest(const std::string& str)
     return (false);
 }
 
-void readFromSocket(t_socket *client_socket, int epoll_fd, std::list<t_socket> &clientSockets)
+void readFromSocket(t_socket *client_socket, int epoll_fd, std::map<int, t_socket> &clientSockets)
 {
     char buf[4096];
     ssize_t bytesRead = recv(client_socket->socket_fd, buf, sizeof(buf), 0);
@@ -162,17 +162,9 @@ void readFromSocket(t_socket *client_socket, int epoll_fd, std::list<t_socket> &
         // cliente cerro la conexion o error -> cerrar socket
         epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_socket->socket_fd, NULL);
         close(client_socket->socket_fd);
-        for (std::list<t_socket>::iterator it = clientSockets.begin(); it != clientSockets.end(); ++it)
-        {
-            if (&(*it) == client_socket)
-            {
-                clientSockets.erase(it);
-                break;
-            }
-        }
+        clientSockets.erase(client_socket->socket_fd);
         return;
     }
-
     // leido -> append
     client_socket->readBuffer.append(buf, bytesRead);
 }

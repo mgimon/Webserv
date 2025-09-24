@@ -13,6 +13,7 @@ int main() {
 
 	serverList.push_back(server);
 
+	
 	try
 	{
 		initServer(serverList);

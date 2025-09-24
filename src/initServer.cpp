@@ -35,7 +35,7 @@ int createListenSocket(t_listen listen_conf)
 		socket_fd = socket(node->ai_family, node->ai_socktype, node->ai_protocol);
 		if (socket_fd == -1)
 			continue;
-		if (setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, &option, sizeof(option)) == -1){ // Permitimos que otro programa pueda usar el puerto mientras el socket se esta cerrando
+		if (setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, &option, sizeof(option)) == -1){ // Permitimos que otro programa pueda usar el puerto mientras el socket se esta cerrando con SO_REUSEADDR
 			close(socket_fd);
 			continue;
 		}
@@ -111,70 +111,18 @@ int init_epoll(std::list<t_socket> &listenSockets)
 	return(fd);
 }
 
-/*
-void initServer(std::vector<ServerConfig> &serverList)
-{
-	std::vector<t_socket> listenSockets = loadListenSockets(serverList);
-	std::map<int ,t_socket> clientSockets;
-	epoll_event event;
-	//ServerConfig serverPrueba = serverList[0];
-	//utils::hardcodeMultipleLocServer(serverPrueba);
-	
-	int epoll_fd = init_epoll(listenSockets);
-	while(true)
-	{
-		epoll_wait(epoll_fd, &event, 1, -1);
-		t_socket *socket = static_cast<t_socket*>(event.data.ptr);
-		if (socket->type == LISTEN_SOCKET)
-		{
-			sockaddr client_addr;
-			socklen_t client_addr_size = sizeof(client_addr);
-			int client_fd = accept(socket->socket_fd, &client_addr, &client_addr_size);
-			if (client_fd == -1 && (errno == EAGAIN || errno == EWOULDBLOCK))
-				continue;
-			if (client_fd == -1)
-				break;
-			
-			t_socket client_socket = {client_fd, socket->server, CLIENT_SOCKET};
-			std::map<int ,t_socket>::iterator it = clientSockets.insert(std::make_pair(client_fd, client_socket)).first; // Crear t_socket y meterlo en un map de clientes
-			
-			epoll_event ev;
-			ev.events = EPOLLIN;
-			ev.data.ptr = &(it->second);
-			if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client_fd, &ev) == -1)
-			{
-				close(client_fd);
-				break;
-			}
-		}
-		else
-		{	
-			HttpRequest http_request(socket->socket_fd);
-			bool keep_alive = true;
-			utils::respond(socket->socket_fd, http_request, socket->server, keep_alive);
-			
-			// Disconect client
-			// epoll_ctl(epoll_fd, EPOLL_CTL_DEL, socket->socket_fd, &ev)
-			// clientSockets.erase(socket->socket_fd);
-			// close(socket->socket_fd);
-		}
-	}
-	//Clean server
-}*/
-
-
-
 void initServer(std::vector<ServerConfig> &serverList)
 {
 	std::list<t_socket> listenSockets = loadListenSockets(serverList);
-	std::list<t_socket> clientSockets;
-	//std::map<int ,t_socket> clientSockets;
+	//std::list<t_socket> clientSockets;
+	std::map<int, t_socket> clientSockets;
 	epoll_event event;
 
 	int epoll_fd = init_epoll(listenSockets);
 
-	while (true)
+	while(true)
 	{
+		std::cout << "Start bucle: " << std::endl;
 		if (epoll_wait(epoll_fd, &event, 1, -1) == -1)
 			break; //FALTA PRINT DEL ERROR
 		
@@ -190,15 +138,18 @@ void initServer(std::vector<ServerConfig> &serverList)
 				break; //FALTA PRINT DEL ERROR
 
 			t_socket client_socket = {client_fd, socket->server, CLIENT_SOCKET, ""};
-			clientSockets.push_back(client_socket);
+			std::map<int ,t_socket>::iterator it_client_sock = clientSockets.insert(std::make_pair(client_fd, client_socket)).first; // Crear t_socket y meterlo en un map de clientes
+			//clientSockets.push_back(client_socket);
 			
 			epoll_event ev;
 			ev.events = EPOLLIN;
-			ev.data.ptr = &clientSockets.back();
+			ev.data.ptr = &(it_client_sock->second);
+			//ev.data.ptr = &clientSockets.back();
 			if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client_fd, &ev) == -1)
 			{
 				close(client_fd);
-				break;
+				clientSockets.erase(it_client_sock);
+				break; //FALTA PRINT DEL ERROR
 			}
 		}
 		else
@@ -207,22 +158,20 @@ void initServer(std::vector<ServerConfig> &serverList)
 
 			if (event.events & (EPOLLHUP | EPOLLERR))
 			{
-				int fd = client_socket->socket_fd;
-				epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, NULL);
-				close(fd);
-				for (std::list<t_socket>::iterator it = clientSockets.begin(); it != clientSockets.end(); ++it)
+				epoll_ctl(epoll_fd, EPOLL_CTL_DEL, socket->socket_fd, NULL);
+				close(socket->socket_fd);
+				clientSockets.erase(socket->socket_fd);
+				/*for (std::list<t_socket>::iterator it = clientSockets.begin(); it != clientSockets.end(); ++it)
 				{
 					if (&(*it) == client_socket)
 					{
-						clientSockets.erase(it);
-						break; //FALTA PRINT DEL ERROR
+						//clientSockets.erase(it);
+						break;
 					}
-				}
+				}*/
 				continue;
 			}
-
 			utils::readFromSocket(client_socket, epoll_fd, clientSockets);
-
 			if (utils::isCompleteRequest(client_socket->readBuffer))
 			{
 				// manejar petición HTTP
@@ -231,28 +180,26 @@ void initServer(std::vector<ServerConfig> &serverList)
 
 				if (utils::respond(client_socket->socket_fd, http_request, *(client_socket->server)) == -1)
 				{
-					int fd = client_socket->socket_fd;
-					epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, NULL);
-					close(fd);
-					for (std::list<t_socket>::iterator it = clientSockets.begin(); it != clientSockets.end(); ++it)
+					epoll_ctl(epoll_fd, EPOLL_CTL_DEL, socket->socket_fd, NULL);
+					close(socket->socket_fd);
+					clientSockets.erase(socket->socket_fd);
+					/*for (std::list<t_socket>::iterator it = clientSockets.begin(); it != clientSockets.end(); ++it)
 					{
 						if (&(*it) == client_socket)
 						{
 							clientSockets.erase(it);
 							break;
 						}
-					}
+					}*/
 				}
 				else
 					client_socket->readBuffer.clear();
 			}
 		}
 	}
-
 	// Cleanup
-	for (std::list<t_socket>::iterator it = listenSockets.begin(); it != listenSockets.end(); ++it)
-		close(it->socket_fd);
-	for (std::list<t_socket>::iterator it = clientSockets.begin(); it != clientSockets.end(); ++it)
-		close(it->socket_fd);
+	closeListenSockets(listenSockets); //CONVERTIR FUNCT EN TEMPLATE
+	for (std::map<int, t_socket>::iterator it = clientSockets.begin(); it != clientSockets.end(); ++it)
+		close(it->second.socket_fd);
 	close(epoll_fd);
 }
