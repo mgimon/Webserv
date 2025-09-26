@@ -28,8 +28,9 @@ class ServerConfig {
 	private:
 		int buffer_size_;
 		std::string document_root_;
-		std::vector<LocationConfig> locations_; // Lista de locations
+		std::vector<LocationConfig> locations_;
 		std::vector<t_listen> listens_;
+		std::map<int, std::string> defaulterrorpages_; // Seteado en constructor por defecto. Usar addDefaultErrorPage(int, std::string) para sobreescribir una entrada o anadir
 
 	public:
 		ServerConfig();
@@ -42,11 +43,15 @@ class ServerConfig {
 		std::string getDocumentRoot() const;
 		const std::vector<LocationConfig> &getLocations() const;
 		std::vector<t_listen> getListens() const;
+		std::string getBestmatchingErrorPageName(int errcode, const std::string &errpagename) const;
 
 		void setBufferSize(int buffer_size);
 		void setDocumentRoot(const std::string& document_root);
 		void setLocations(const std::vector<LocationConfig>& locations);
+		void addDefaultErrorPage(int errcode, std::string errpagename);
 		void addListen(t_listen listen);
+
+		void addDefaultErrorPages();
 };
 
 #endif

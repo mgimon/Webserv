@@ -183,14 +183,6 @@ void initServer(std::vector<ServerConfig> &serverList)
 				epoll_ctl(epoll_fd, EPOLL_CTL_DEL, socket->socket_fd, NULL);
 				close(socket->socket_fd);
 				clientSockets.erase(socket->socket_fd);
-				/*for (std::list<t_socket>::iterator it = clientSockets.begin(); it != clientSockets.end(); ++it)
-				{
-					if (&(*it) == client_socket)
-					{
-						//clientSockets.erase(it);
-						break;
-					}
-				}*/
 				continue;
 			}
 			utils::readFromSocket(client_socket, epoll_fd, clientSockets);
@@ -206,14 +198,6 @@ void initServer(std::vector<ServerConfig> &serverList)
 					epoll_ctl(epoll_fd, EPOLL_CTL_DEL, socket->socket_fd, NULL);
 					close(socket->socket_fd);
 					clientSockets.erase(socket->socket_fd);
-					/*for (std::list<t_socket>::iterator it = clientSockets.begin(); it != clientSockets.end(); ++it)
-					{
-						if (&(*it) == client_socket)
-						{
-							clientSockets.erase(it);
-							break;
-						}
-					}*/
 				}
 				else
 					client_socket->readBuffer.clear();

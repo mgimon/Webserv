@@ -68,15 +68,15 @@ int respond(int client_fd, const HttpRequest &http_request, ServerConfig &server
     }
     else if (method == "POST")
     {
-        const char* response =
-        "HTTP/1.1 201 OK\r\n"
-        "Content-Type: text/html\r\n"
-        "Content-Length: 71\r\n"
+        std::string response =
+        "HTTP/1.1 303 See Other\r\n"
+        "Location: /form_result\r\n"
+        "Content-Length: 0\r\n"
         "Connection: close\r\n"
-        "\r\n"
-        "<!DOCTYPE html><html><body><h1>Form recibido correctamente</h1></body></html>";
+        "\r\n";
 
-        send(client_fd, response, strlen(response), 0);
+        send(client_fd, response.c_str(), response.size(), 0);
+        http_response.respondInClient(client_fd);
         return (0);
     }
     else if (method == "DELETE") {
@@ -207,19 +207,19 @@ void hardcodeMultipleLocServer(ServerConfig &server)
     loc_upload.setAutoIndex(false);
 
     // Location "/form_result/"
-    LocationConfig loc_form;
+    /*LocationConfig loc_form;
     loc_form.setPath("/form_result/");
     std::vector<std::string> form_methods;
     form_methods.push_back("POST");
     loc_form.setMethods(form_methods);
-    loc_form.setAutoIndex(false);
+    loc_form.setAutoIndex(false);*/
 
     // Add locations to server object
     std::vector<LocationConfig> locations;
     locations.push_back(loc_root);
     locations.push_back(loc_images);
     locations.push_back(loc_upload);
-    locations.push_back(loc_form);
+    //locations.push_back(loc_form);
     server.setLocations(locations);
 
 }
