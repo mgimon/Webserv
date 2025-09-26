@@ -45,7 +45,6 @@ int respond(int client_fd, const HttpRequest &http_request, ServerConfig &server
 {
     HttpResponse    http_response;
     const std::string &method = http_request.getMethod();
-    std::cout << "DEBUG: server locations passed to respond = " << serverOne.getLocations().size() << std::endl;
 
     const LocationConfig *requestLocation = locationMatchforRequest(http_request.getPath(), serverOne.getLocations());
 
@@ -120,7 +119,7 @@ int respondPost(int client_fd, const HttpRequest &http_request, HttpResponse &ht
     (void)http_request;
     (void)http_response;
     
-    return 0;
+    return (0);
 }
 
 bool isCompleteRequest(const std::string& str)
@@ -243,7 +242,7 @@ const LocationConfig* locationMatchforRequest(const std::string &request_path, c
         }
     }
 
-    return best_match;
+    return (best_match);
 }
 
 

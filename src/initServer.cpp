@@ -160,8 +160,8 @@ void createClientSocket(t_socket *listen_socket, int epoll_fd, std::map<int, t_s
 void initServer(std::vector<ServerConfig> &serverList)
 {
 	std::list<t_socket> listenSockets = loadListenSockets(serverList);
-	//std::list<t_socket> clientSockets;
 	std::map<int, t_socket> clientSockets;
+
 	epoll_event event; // NOTA: IMPLEMENTAR LISTA DE EVENTOS
 
 	int epoll_fd = init_epoll(listenSockets);
