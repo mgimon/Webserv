@@ -27,6 +27,7 @@ typedef struct s_listen
 class ServerConfig {
 	private:
 		int buffer_size_;
+		int	client_maxbodysize_;
 		std::string document_root_;
 		std::vector<LocationConfig> locations_;
 		std::vector<t_listen> listens_;

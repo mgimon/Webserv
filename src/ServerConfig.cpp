@@ -1,11 +1,11 @@
 #include "../include/ServerConfig.hpp"
 
 /** CANONICAL **/
-ServerConfig::ServerConfig() : buffer_size_(4096), document_root_("./") { addDefaultErrorPages(); }
-ServerConfig::ServerConfig(int buffer_size, const std::string& document_root) : buffer_size_(buffer_size), document_root_(document_root) { addDefaultErrorPages(); }
-ServerConfig::ServerConfig(const ServerConfig& other) : buffer_size_(other.buffer_size_), document_root_(other.document_root_), locations_(other.locations_), listens_(other.listens_), defaulterrorpages_(other.defaulterrorpages_) {}
+ServerConfig::ServerConfig() : buffer_size_(4096), document_root_("./"), client_maxbodysize_(10485760) { addDefaultErrorPages(); }
+ServerConfig::ServerConfig(int buffer_size, const std::string& document_root) : buffer_size_(buffer_size), document_root_(document_root), client_maxbodysize_(10485760) { addDefaultErrorPages(); }
+ServerConfig::ServerConfig(const ServerConfig& other) : buffer_size_(other.buffer_size_), client_maxbodysize_(other.client_maxbodysize_), document_root_(other.document_root_), locations_(other.locations_), listens_(other.listens_), defaulterrorpages_(other.defaulterrorpages_) {}
 ServerConfig& ServerConfig::operator=(const ServerConfig& other) {
-    if (this != &other) {buffer_size_ = other.buffer_size_; document_root_ = other.document_root_; listens_ = other.listens_; defaulterrorpages_ = other.defaulterrorpages_; }
+    if (this != &other) {buffer_size_ = other.buffer_size_; client_maxbodysize_ = other.client_maxbodysize_; document_root_ = other.document_root_; listens_ = other.listens_; defaulterrorpages_ = other.defaulterrorpages_; }
     return *this;
 }
 ServerConfig::~ServerConfig() {}

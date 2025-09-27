@@ -204,7 +204,6 @@ void hardcodeMultipleLocServer(ServerConfig &server)
     loc_root.setPath("/");
     std::vector<std::string> root_methods;
     root_methods.push_back("GET");
-    //root_methods.push_back("POST");
     loc_root.setMethods(root_methods);
     loc_root.setAutoIndex(false);
 
