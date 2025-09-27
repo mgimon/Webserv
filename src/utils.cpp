@@ -40,6 +40,15 @@ void validatePathWithIndex(std::string &path)
     path = "var/www/html/" + path;
 }
 
+std::string getErrorPath(ServerConfig &serverOne, int errcode)
+{
+        std::string errorpath = serverOne.getDocumentRoot() + "/" + serverOne.getErrorPageName(errcode);
+        if (!errorpath.empty() && errorpath[0] == '/')
+            errorpath = errorpath.substr(1);
+        
+        return (errorpath);
+}
+
 // Debe incluir gestion de CGI
 int respond(int client_fd, const HttpRequest &http_request, ServerConfig &serverOne)
 {
@@ -57,27 +66,36 @@ int respond(int client_fd, const HttpRequest &http_request, ServerConfig &server
         {
             std::string path = http_request.getPath();
             utils::validatePathWithIndex(path);
-            return respondGet(client_fd, path, http_request, http_response);
+            return respondGet(serverOne, client_fd, path, http_request, http_response);
         }
         else
         {
-            http_response.setError("var/www/html/405MethodNotAllowed.html", 405, "Method Not Allowed");
+            http_response.setError(getErrorPath(serverOne, 405), 405, "Method Not Allowed");
             http_response.respondInClient(client_fd);
             return (1);
         }
     }
     else if (method == "POST")
     {
-        std::string response =
-        "HTTP/1.1 303 See Other\r\n"
-        "Location: /form_result\r\n"
-        "Content-Length: 0\r\n"
-        "Connection: close\r\n"
-        "\r\n";
+        if (requestLocation && isMethodAllowed(requestLocation->getMethods(), "POST"))
+        {
+            std::string response =
+            "HTTP/1.1 303 See Other\r\n"
+            "Location: /form_result\r\n"
+            "Content-Length: 0\r\n"
+            "Connection: close\r\n"
+            "\r\n";
 
-        send(client_fd, response.c_str(), response.size(), 0);
-        http_response.respondInClient(client_fd);
-        return (0);
+            send(client_fd, response.c_str(), response.size(), 0);
+            http_response.respondInClient(client_fd);
+            return (0);
+        }
+        else
+        {
+            http_response.setError(getErrorPath(serverOne, 405), 405, "Method Not Allowed");
+            http_response.respondInClient(client_fd);
+            return (1);
+        }
     }
     else if (method == "DELETE") {
         std::cout << "Method delete" << std::endl;
@@ -85,17 +103,17 @@ int respond(int client_fd, const HttpRequest &http_request, ServerConfig &server
     }
     else {
         std::cout << "Other method" << std::endl;
-        http_response.setError("var/www/html/405MethodNotAllowed.html", 405, "Method Not Allowed");
+        http_response.setError(getErrorPath(serverOne, 405), 405, "Method Not Allowed");
         http_response.respondInClient(client_fd);
         return (1);
     }
 }
 
-int respondGet(int client_fd, std::string path, const HttpRequest &http_request, HttpResponse &http_response)
+int respondGet(ServerConfig &serverOne, int client_fd, std::string path, const HttpRequest &http_request, HttpResponse &http_response)
 {
     int keep_alive = 0;
 
-    http_response.buildResponse(path);
+    http_response.buildResponse(path, serverOne);
 
     std::map<std::string, std::string> headers = http_response.getHeaders();
     std::map<std::string, std::string>::const_iterator it = http_request.getHeaders().find("Connection");
@@ -186,7 +204,7 @@ void hardcodeMultipleLocServer(ServerConfig &server)
     loc_root.setPath("/");
     std::vector<std::string> root_methods;
     root_methods.push_back("GET");
-    root_methods.push_back("POST");
+    //root_methods.push_back("POST");
     loc_root.setMethods(root_methods);
     loc_root.setAutoIndex(false);
 
@@ -207,43 +225,49 @@ void hardcodeMultipleLocServer(ServerConfig &server)
     loc_upload.setAutoIndex(false);
 
     // Location "/form_result/"
-    /*LocationConfig loc_form;
+    LocationConfig loc_form;
     loc_form.setPath("/form_result/");
     std::vector<std::string> form_methods;
     form_methods.push_back("POST");
+    form_methods.push_back("GET");
     loc_form.setMethods(form_methods);
-    loc_form.setAutoIndex(false);*/
+    loc_form.setAutoIndex(false);
 
     // Add locations to server object
     std::vector<LocationConfig> locations;
     locations.push_back(loc_root);
     locations.push_back(loc_images);
     locations.push_back(loc_upload);
-    //locations.push_back(loc_form);
+    locations.push_back(loc_form);
     server.setLocations(locations);
 
 }
 
+std::string normalizePathForMatch(const std::string &path) {
+    if (path.empty()) return "/";
+    if (path[path.size() - 1] != '/')
+        return (path + "/");
+    return path;
+}
+
 const LocationConfig* locationMatchforRequest(const std::string &request_path, const std::vector<LocationConfig> &locations)
 {
+    std::string req = normalizePathForMatch(request_path);
     const LocationConfig* best_match = NULL;
     size_t best_len = 0;
 
     for (size_t i = 0; i < locations.size(); i++)
     {
-        const std::string &loc_path = locations[i].getPath();
-        if (request_path.find(loc_path) == 0)
+        std::string loc_path = normalizePathForMatch(locations[i].getPath());
+        if (req.find(loc_path) == 0 && loc_path.size() > best_len)
         {
-            if (loc_path.size() > best_len)
-            {
-                best_len = loc_path.size();
-                best_match = &locations[i];
-            }
+            best_len = loc_path.size();
+            best_match = &locations[i];
         }
     }
-
     return (best_match);
 }
+
 
 
 

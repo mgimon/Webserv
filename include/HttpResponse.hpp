@@ -13,6 +13,12 @@
 #include <map>
 #include <cstdlib>
 
+// Forward declarations
+class ServerConfig;
+namespace utils {
+    std::string getErrorPath(ServerConfig &serverOne, int errcode);
+}
+
 class HttpResponse {
 
 	private:
@@ -48,7 +54,7 @@ class HttpResponse {
 		void setError(const std::string &filepath, int status, const std::string &error_msg);
 		void set200(std::ifstream &file);
 
-		void buildResponse(std::string path);
+		void buildResponse(std::string path, ServerConfig &serverOne);
 		void forceConnectionClose();
 		void respondInClient(int client_fd);
 };

@@ -116,12 +116,12 @@ void HttpResponse::forceConnectionClose() {
     this->setHeaders(headers);
 }
 
-void HttpResponse::buildResponse(std::string path) {
+void HttpResponse::buildResponse(std::string path, ServerConfig &serverOne) {
 
     std::ifstream file(path.c_str());
     
     if (!file)
-        setError("var/www/html/404NotFound.html", 404, "Not Found :(");
+        setError(utils::getErrorPath(serverOne, 404), 404, "Not Found");
     else
         set200(file);
 }

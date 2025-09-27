@@ -43,7 +43,7 @@ class ServerConfig {
 		std::string getDocumentRoot() const;
 		const std::vector<LocationConfig> &getLocations() const;
 		std::vector<t_listen> getListens() const;
-		std::string getBestmatchingErrorPageName(int errcode, const std::string &errpagename) const;
+		std::string getErrorPageName(int errcode) const;
 
 		void setBufferSize(int buffer_size);
 		void setDocumentRoot(const std::string& document_root);

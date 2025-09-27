@@ -24,7 +24,7 @@ void ServerConfig::setDocumentRoot(const std::string& document_root) { document_
 void ServerConfig::setLocations(const std::vector<LocationConfig>& locations) { locations_ = locations; }
 void ServerConfig::addListen(t_listen listen) { listens_.push_back(listen); }
 
-std::string ServerConfig::getBestmatchingErrorPageName(int errcode, const std::string &errpagename) const
+std::string ServerConfig::getErrorPageName(int errcode) const
 {
     for (std::map<int, std::string>::const_iterator it = defaulterrorpages_.begin(); it != defaulterrorpages_.end(); ++it)
     {
@@ -34,7 +34,7 @@ std::string ServerConfig::getBestmatchingErrorPageName(int errcode, const std::s
     return ("500Error.html");
 }
 
-// overwrites errpagenames if key already exists
+// overwrites default error pages if the key already exists
 void ServerConfig::addDefaultErrorPage(int errcode, std::string errpagename)
 {
     defaulterrorpages_[errcode] = errpagename;
