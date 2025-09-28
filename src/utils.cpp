@@ -77,13 +77,19 @@ int respond(int client_fd, const HttpRequest &http_request, ServerConfig &server
     }
     else if (method == "POST")
     {
+        if (!requestLocation || !isMethodAllowed(requestLocation->getMethods(), "POST"))
+        {
+            http_response.setError(getErrorPath(serverOne, 405), 405, "Method Not Allowed");
+            http_response.respondInClient(client_fd);
+            return (1);
+        }
         if (http_request.exceedsMaxBodySize(serverOne.getClientMaxBodySize()))
         {
             http_response.setError(getErrorPath(serverOne, 413), 413, "Payload Too Large");
             http_response.respondInClient(client_fd);
             return (1);
         }
-        if (requestLocation && isMethodAllowed(requestLocation->getMethods(), "POST"))
+        else
         {
             std::string response =
             "HTTP/1.1 303 See Other\r\n"
@@ -95,12 +101,6 @@ int respond(int client_fd, const HttpRequest &http_request, ServerConfig &server
             send(client_fd, response.c_str(), response.size(), 0);
             http_response.respondInClient(client_fd);
             return (0);
-        }
-        else
-        {
-            http_response.setError(getErrorPath(serverOne, 405), 405, "Method Not Allowed");
-            http_response.respondInClient(client_fd);
-            return (1);
         }
     }
     else if (method == "DELETE") {
