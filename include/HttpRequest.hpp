@@ -46,6 +46,7 @@ class HttpRequest {
 
         void printRequest() const;
         void parseRequest(const std::string &str);
+        bool exceedsMaxBodySize(size_t client_maxbodysize) const;
 };
 
 #endif

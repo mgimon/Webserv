@@ -77,6 +77,12 @@ int respond(int client_fd, const HttpRequest &http_request, ServerConfig &server
     }
     else if (method == "POST")
     {
+        if (http_request.exceedsMaxBodySize(serverOne.getClientMaxBodySize()))
+        {
+            http_response.setError(getErrorPath(serverOne, 413), 413, "Payload Too Large");
+            http_response.respondInClient(client_fd);
+            return (1);
+        }
         if (requestLocation && isMethodAllowed(requestLocation->getMethods(), "POST"))
         {
             std::string response =
@@ -266,7 +272,6 @@ const LocationConfig* locationMatchforRequest(const std::string &request_path, c
     }
     return (best_match);
 }
-
 
 
 

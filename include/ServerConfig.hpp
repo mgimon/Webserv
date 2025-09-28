@@ -27,7 +27,7 @@ typedef struct s_listen
 class ServerConfig {
 	private:
 		int buffer_size_;
-		int	client_maxbodysize_;
+		size_t	client_maxbodysize_;
 		std::string document_root_;
 		std::vector<LocationConfig> locations_;
 		std::vector<t_listen> listens_;
@@ -45,10 +45,12 @@ class ServerConfig {
 		const std::vector<LocationConfig> &getLocations() const;
 		std::vector<t_listen> getListens() const;
 		std::string getErrorPageName(int errcode) const;
+		size_t getClientMaxBodySize() const;
 
 		void setBufferSize(int buffer_size);
 		void setDocumentRoot(const std::string& document_root);
 		void setLocations(const std::vector<LocationConfig>& locations);
+		void setClientMaxBodySize(size_t client_maxbodysize);
 		void addDefaultErrorPage(int errcode, std::string errpagename);
 		void addListen(t_listen listen);
 

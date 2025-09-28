@@ -88,3 +88,11 @@ void HttpRequest::parseRequest(const std::string &str)
     if (!body_.empty() && body_[body_.size() - 1] == '\n')
         body_.erase(body_.size() - 1, 1);
 }
+
+bool HttpRequest::exceedsMaxBodySize(size_t client_maxbodysize) const
+{
+    if (this->getBody().size() > client_maxbodysize)
+        return (true);
+    else
+        return (false);
+}
