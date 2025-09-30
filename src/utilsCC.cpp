@@ -1,6 +1,7 @@
-#include "../include/utilsCC.hpp"
+#include "../include/UtilsCC.hpp"
 
-std::string to_stringCC(int num)
+
+std::string UtilsCC::to_stringCC(int num)
 {
 	std::stringstream ss;
     ss << num;
@@ -8,13 +9,13 @@ std::string to_stringCC(int num)
 	return(ss.str());
 }
 
-void closeListenSockets(std::list<t_socket> &listenSockets)
+void UtilsCC::closeListenSockets(std::list<t_socket> &listenSockets)
 {
     for (std::list<t_socket>::iterator it = listenSockets.begin(); it != listenSockets.end(); ++it)
         close(it->socket_fd);
 }
 
-void closeServer(int epoll_fd, std::map<int, t_socket> &clientSockets, std::list<t_socket> &listenSockets)
+void UtilsCC::closeServer(int epoll_fd, std::map<int, t_socket> &clientSockets, std::list<t_socket> &listenSockets)
 {
 	closeListenSockets(listenSockets); // NOTA: CONVERTIR FUNCTION EN TEMPLATE
 	for (std::map<int, t_socket>::iterator it = clientSockets.begin(); it != clientSockets.end(); ++it)

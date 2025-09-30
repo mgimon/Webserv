@@ -1,5 +1,5 @@
 #include "../include/ServerConfig.hpp"
-#include "../include/initServer.hpp"
+#include "../include/InitServer.hpp"
 #include "../include/utils.hpp"
 
 int main() {

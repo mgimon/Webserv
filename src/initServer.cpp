@@ -1,6 +1,7 @@
-#include "../include/initServer.hpp"
+#include "../include/InitServer.hpp"
 #include "../include/utils.hpp"
-#include "../include/utilsCC.hpp"
+#include "../include/UtilsCC.hpp"
+#include "../include/Signals.hpp" 
 
 // Devuelve una lista de configuraciones posibles para un listen socket
 addrinfo *getAddrinfoList(t_listen listen)
@@ -15,9 +16,9 @@ addrinfo *getAddrinfoList(t_listen listen)
 	hints.ai_flags = AI_PASSIVE; // Para usar todas las interfaces del pc (solo se aplica si pasamos NULL como primer parametro a getaddrinfo)
 
 	if (listen.host == "0.0.0.0")
-		rcode = getaddrinfo(NULL, to_stringCC(listen.port).c_str(), &hints, &addrinfo_list);
+		rcode = getaddrinfo(NULL, UtilsCC::to_stringCC(listen.port).c_str(), &hints, &addrinfo_list);
 	else
-		rcode = getaddrinfo(listen.host.c_str(), to_stringCC(listen.port).c_str(), &hints, &addrinfo_list);
+		rcode = getaddrinfo(listen.host.c_str(), UtilsCC::to_stringCC(listen.port).c_str(), &hints, &addrinfo_list);
 
 	if (rcode != 0)
 		throw std::runtime_error(gai_strerror(rcode));
@@ -79,7 +80,7 @@ std::list<t_socket> loadListenSockets(std::vector<ServerConfig> &serverList)
 			}
 			catch(const std::exception& e)
 			{
-				closeListenSockets(listenSockets);
+				UtilsCC::closeListenSockets(listenSockets);
 				throw;
 			}
 		}
@@ -92,7 +93,7 @@ int init_epoll(std::list<t_socket> &listenSockets)
 	int fd = epoll_create(1);
 	if (fd == -1)
 	{
-		closeListenSockets(listenSockets);
+		UtilsCC::closeListenSockets(listenSockets);
 		throw std::runtime_error(strerror(errno));
 	}
 	for (std::list<t_socket>::iterator it = listenSockets.begin(); it != listenSockets.end(); ++it)
@@ -104,7 +105,7 @@ int init_epoll(std::list<t_socket> &listenSockets)
 		ev.data.ptr = &(*it);
 		if (epoll_ctl(fd, EPOLL_CTL_ADD, it->socket_fd, &ev) == -1)
 		{
-			closeListenSockets(listenSockets);
+			UtilsCC::closeListenSockets(listenSockets);
 			throw std::runtime_error(strerror(errno));
 		}
 	}
@@ -122,7 +123,7 @@ void createClientSocket(t_socket *listen_socket, int epoll_fd, std::map<int, t_s
 	//	return;
 	if (client_fd == -1)
 	{
-		closeServer(epoll_fd, clientSockets, listenSockets);
+		UtilsCC::closeServer(epoll_fd, clientSockets, listenSockets);
 		throw std::runtime_error(strerror(errno));
 	}
 
@@ -143,15 +144,13 @@ void createClientSocket(t_socket *listen_socket, int epoll_fd, std::map<int, t_s
 	// Añadimos el socket al map de clientScokets
 	t_socket client_socket = {client_fd, listen_socket->server, CLIENT_SOCKET, ""};
 	std::map<int, t_socket>::iterator it_client_sock = clientSockets.insert(std::make_pair(client_fd, client_socket)).first; // Crear t_socket y meterlo en un map de clientes
-	//clientSockets.push_back(client_socket);
 	
 	// Añadimos el socket al epoll
 	ev.events = EPOLLIN;
 	ev.data.ptr = &(it_client_sock->second);
-	//ev.data.ptr = &clientSockets.back();
 	if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client_fd, &ev) == -1)
 	{
-		closeServer(epoll_fd, clientSockets, listenSockets);
+		UtilsCC::closeServer(epoll_fd, clientSockets, listenSockets);
 		throw std::runtime_error(strerror(errno));
 	}
 }
@@ -160,17 +159,25 @@ void createClientSocket(t_socket *listen_socket, int epoll_fd, std::map<int, t_s
 void initServer(std::vector<ServerConfig> &serverList)
 {
 	std::list<t_socket> listenSockets = loadListenSockets(serverList);
-	//std::list<t_socket> clientSockets;
 	std::map<int, t_socket> clientSockets;
 	epoll_event event; // NOTA: IMPLEMENTAR LISTA DE EVENTOS
 
 	int epoll_fd = init_epoll(listenSockets);
 
-	while(true)
+	signal(SIGINT, Signals::signalHandler);
+	while(Signals::running)
 	{
-		epoll_wait(epoll_fd, &event, 1, -1);
-		// NOTA: FALTA Gestion de error de epoll_wait
-
+		if (epoll_wait(epoll_fd, &event, 1, -1) == -1)
+		{
+			if (errno == EINTR) // Si se recibe una señal se continua
+				continue;
+			else
+			{
+				UtilsCC::closeServer(epoll_fd, clientSockets, listenSockets);
+				throw std::runtime_error(strerror(errno));
+			}
+		}
+		
 		t_socket *socket = static_cast<t_socket *>(event.data.ptr);
 		if (socket->type == LISTEN_SOCKET)
 			createClientSocket(socket, epoll_fd, clientSockets, listenSockets);
@@ -183,14 +190,6 @@ void initServer(std::vector<ServerConfig> &serverList)
 				epoll_ctl(epoll_fd, EPOLL_CTL_DEL, socket->socket_fd, NULL);
 				close(socket->socket_fd);
 				clientSockets.erase(socket->socket_fd);
-				/*for (std::list<t_socket>::iterator it = clientSockets.begin(); it != clientSockets.end(); ++it)
-				{
-					if (&(*it) == client_socket)
-					{
-						//clientSockets.erase(it);
-						break;
-					}
-				}*/
 				continue;
 			}
 			utils::readFromSocket(client_socket, epoll_fd, clientSockets);
@@ -206,14 +205,6 @@ void initServer(std::vector<ServerConfig> &serverList)
 					epoll_ctl(epoll_fd, EPOLL_CTL_DEL, socket->socket_fd, NULL);
 					close(socket->socket_fd);
 					clientSockets.erase(socket->socket_fd);
-					/*for (std::list<t_socket>::iterator it = clientSockets.begin(); it != clientSockets.end(); ++it)
-					{
-						if (&(*it) == client_socket)
-						{
-							clientSockets.erase(it);
-							break;
-						}
-					}*/
 				}
 				else
 					client_socket->readBuffer.clear();
@@ -221,5 +212,6 @@ void initServer(std::vector<ServerConfig> &serverList)
 		}
 	}
 	// Cleanup
-	closeServer(epoll_fd, clientSockets, listenSockets);
+	UtilsCC::closeServer(epoll_fd, clientSockets, listenSockets);
+	std::cout << std::endl << "Server closed" << std::endl;
 }
