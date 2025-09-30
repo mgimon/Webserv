@@ -55,6 +55,7 @@ class ServerConfig {
 		void addListen(t_listen listen);
 
 		void addDefaultErrorPages();
+		void print() const;
 };
 
 #endif

@@ -30,23 +30,29 @@ bool isMethodAllowed(const std::vector<std::string> &methods, const std::string 
     return (false);
 }
 
-void validatePathWithIndex(std::string &path)
+void validatePathWithIndex(std::string &path, ServerConfig &serverOne)
 {
     if (path.empty() || path == "/")
         path = "index.html";
     else if (path[0] == '/')
         path.erase(0, 1);  // quitar '/'
 
-    path = "var/www/html/" + path;
+    path = serverOne.getDocumentRoot() + '/' + path;
+    if (path[0] == '/')
+        path = path.substr(1);
+
+    //std::cout << YELLOW << "Path is " << path << RESET << std::endl;
 }
 
 std::string getErrorPath(ServerConfig &serverOne, int errcode)
 {
-        std::string errorpath = serverOne.getDocumentRoot() + "/" + serverOne.getErrorPageName(errcode);
-        if (!errorpath.empty() && errorpath[0] == '/')
-            errorpath = errorpath.substr(1);
-        
-        return (errorpath);
+    std::string errorpath = serverOne.getDocumentRoot() + "/" + serverOne.getErrorPageName(errcode);
+    if (!errorpath.empty() && errorpath[0] == '/')
+        errorpath = errorpath.substr(1);
+
+    //std::cout << RED << "Error path is " << errorpath << RESET << std::endl;
+    
+    return (errorpath);
 }
 
 // Debe incluir gestion de CGI
@@ -57,7 +63,8 @@ int respond(int client_fd, const HttpRequest &http_request, ServerConfig &server
 
     const LocationConfig *requestLocation = locationMatchforRequest(http_request.getPath(), serverOne.getLocations());
 
-    printLocation(requestLocation);
+    //printLocation(requestLocation);
+    //serverOne.print();
 
     if (method == "GET")
     {
@@ -65,7 +72,7 @@ int respond(int client_fd, const HttpRequest &http_request, ServerConfig &server
         if (requestLocation && isMethodAllowed(requestLocation->getMethods(), "GET"))
         {
             std::string path = http_request.getPath();
-            utils::validatePathWithIndex(path);
+            utils::validatePathWithIndex(path, serverOne);
             return respondGet(serverOne, client_fd, path, http_request, http_response);
         }
         else

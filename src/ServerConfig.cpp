@@ -50,3 +50,34 @@ void ServerConfig::addDefaultErrorPages()
     addDefaultErrorPage(413, "413PayloadTooLarge.html");
     addDefaultErrorPage(500, "500Error.html");
 }
+
+void ServerConfig::print() const
+{
+    std::cout << BLUE << "ServerConfig:" << RESET << std::endl;
+    std::cout << BLUE << "  Buffer Size: " << RESET << buffer_size_ << std::endl;
+    std::cout << BLUE << "  Client Max Body Size: " << RESET << client_maxbodysize_ << std::endl;
+    std::cout << BLUE << "  Document Root: " << RESET << document_root_ << std::endl;
+
+    std::cout << BLUE << "  Listens:" << RESET << std::endl;
+    for (size_t i = 0; i < listens_.size(); ++i)
+    {
+        std::cout << "    " << BLUE << "Host: " << RESET << listens_[i].host
+                  << ", " << BLUE << "Port: " << RESET << listens_[i].port
+                  << ", " << BLUE << "Backlog: " << RESET << listens_[i].backlog
+                  << std::endl;
+    }
+
+    std::cout << BLUE << "  Default Error Pages:" << RESET << std::endl;
+    for (std::map<int, std::string>::const_iterator it = defaulterrorpages_.begin();
+         it != defaulterrorpages_.end(); ++it)
+    {
+        std::cout << "    " << BLUE << "Error " << RESET << it->first
+                  << " -> " << it->second << std::endl;
+    }
+
+    std::cout << BLUE << "  Locations:" << RESET << std::endl;
+    for (size_t i = 0; i < locations_.size(); ++i)
+    {
+        std::cout << "    " << BLUE << "Location " << RESET << i << std::endl;
+    }
+}
