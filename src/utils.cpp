@@ -69,17 +69,44 @@ int respond(int client_fd, const HttpRequest &http_request, ServerConfig &server
     if (method == "GET")
     {
         std::cout << "Method get" << std::endl;
-        if (requestLocation && isMethodAllowed(requestLocation->getMethods(), "GET"))
+        if (!requestLocation)
         {
-            std::string path = http_request.getPath();
-            utils::validatePathWithIndex(path, serverOne);
-            return respondGet(serverOne, client_fd, path, http_request, http_response);
+            http_response.setError(getErrorPath(serverOne, 404), 404, "Not Found");
+            http_response.respondInClient(client_fd);
+            return (1);
+        }
+        std::string path = http_request.getPath();
+        utils::validatePathWithIndex(path, serverOne);
+        if (!utils::isDirectory(path))
+        {
+            if (isMethodAllowed(requestLocation->getMethods(), "GET"))
+                return respondGet(serverOne, client_fd, path, http_request, http_response);
+            else
+            {
+                http_response.setError(getErrorPath(serverOne, 405), 405, "Method Not Allowed");
+                http_response.respondInClient(client_fd);
+                return (1);
+            }
         }
         else
         {
-            http_response.setError(getErrorPath(serverOne, 405), 405, "Method Not Allowed");
-            http_response.respondInClient(client_fd);
-            return (1);
+            if (requestLocation->getAutoIndex() == false)
+            {
+                http_response.setError(getErrorPath(serverOne, 404), 404, "Not Found");
+                http_response.respondInClient(client_fd);
+                return (1);
+            }
+            else // serving autoindex
+            {
+                std::string root;
+                if ((requestLocation->getRootOverride()).empty())
+                    root = serverOne.getDocumentRoot();
+                else
+                    root = requestLocation->getRootOverride();
+                std::string autoindex_page = utils::generateAutoindex(root, path);
+                // setear el string autoindex_page como respuesta en funcion dinamica tipo setError
+                // llamar respondInClient
+            }
         }
     }
     else if (method == "POST")
