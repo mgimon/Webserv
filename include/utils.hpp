@@ -7,7 +7,9 @@
 #include <iostream>
 #include <fstream>
 #include <cstring>
+#include <dirent.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <netinet/in.h>
 #include <unistd.h>
 #include <list>
@@ -30,6 +32,8 @@ namespace utils {
     const LocationConfig* locationMatchforRequest(const std::string &request_path, const std::vector<LocationConfig> &locations);
     std::string getErrorPath(ServerConfig &serverOne, int errcode);
     void hardcodeMultipleLocServer(ServerConfig &server);
+    bool isDirectory(const std::string& path);
+    std::string generateAutoindex(const std::string& dirPath, const std::string& urlPath);
 }
 
 #endif

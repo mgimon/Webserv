@@ -29,6 +29,8 @@ class ServerConfig {
 		int buffer_size_;
 		size_t	client_maxbodysize_;
 		std::string document_root_;
+		std::string default_file_;
+		bool        autoindex_; // Las locations deben heredarla si no tienen regla propia
 		std::vector<LocationConfig> locations_;
 		std::vector<t_listen> listens_;
 		std::map<int, std::string> defaulterrorpages_; // Seteado en constructor por defecto. Usar addDefaultErrorPage(int, std::string) para sobreescribir una entrada o anadir
@@ -42,6 +44,8 @@ class ServerConfig {
 
 		int getBufferSize() const;
 		std::string getDocumentRoot() const;
+		std::string getDefaultFile() const;
+		bool getAutoindex() const;
 		const std::vector<LocationConfig> &getLocations() const;
 		std::vector<t_listen> getListens() const;
 		std::string getErrorPageName(int errcode) const;
@@ -49,6 +53,8 @@ class ServerConfig {
 
 		void setBufferSize(int buffer_size);
 		void setDocumentRoot(const std::string& document_root);
+		void setDefaultFile(const std::string& default_file);
+		void setAutoindex(bool autoindex);
 		void setLocations(const std::vector<LocationConfig>& locations);
 		void setClientMaxBodySize(size_t client_maxbodysize);
 		void addDefaultErrorPage(int errcode, std::string errpagename);

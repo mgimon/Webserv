@@ -33,7 +33,7 @@ bool isMethodAllowed(const std::vector<std::string> &methods, const std::string 
 void validatePathWithIndex(std::string &path, ServerConfig &serverOne)
 {
     if (path.empty() || path == "/")
-        path = "index.html";
+        path = serverOne.getDefaultFile();
     else if (path[0] == '/')
         path.erase(0, 1);  // quitar '/'
 
@@ -199,6 +199,47 @@ void readFromSocket(t_socket *client_socket, int epoll_fd, std::map<int, t_socke
     client_socket->readBuffer.append(buf, bytesRead);
 }
 
+bool isDirectory(const std::string& path)
+{
+    struct stat st;
+    if (stat(path.c_str(), &st) != 0)
+        return (false); // path invalido
+    return (S_ISDIR(st.st_mode)); // true si es directorio, false si no
+}
+
+std::string generateAutoindex(const std::string& dirPath, const std::string& urlPath)
+{
+    DIR* dir = opendir(dirPath.c_str());
+    if (!dir)
+        throw std::runtime_error("Cannot open directory");
+
+    std::ostringstream html;
+    html << "<html><head><title>Index of " << urlPath << "</title></head>"
+         << "<body><h1>Index of " << urlPath << "</h1><ul>";
+
+    struct dirent* entry;
+    while ((entry = readdir(dir)) != NULL)
+    {
+        std::string name = entry->d_name;
+        if (name == "." || name == "..")
+            continue;
+
+        std::string fullPath = dirPath + "/" + name;
+        struct stat st;
+        if (stat(fullPath.c_str(), &st) == 0 && S_ISDIR(st.st_mode))
+            name += "/"; // marcar directorios
+
+        html << "<li><a href=\"" << urlPath;
+        if (urlPath[urlPath.size() - 1] != '/')
+            html << "/";
+        html << name << "\">" << name << "</a></li>";
+    }
+
+    html << "</ul></body></html>";
+    closedir(dir);
+    return (html.str());
+}
+
 void hardcodeMultipleLocServer(ServerConfig &server)
 {
     //server.setHost("0.0.0.0");
@@ -218,7 +259,7 @@ void hardcodeMultipleLocServer(ServerConfig &server)
     std::vector<std::string> root_methods;
     root_methods.push_back("GET");
     loc_root.setMethods(root_methods);
-    loc_root.setAutoIndex(false);
+    loc_root.setAutoIndex(true);
 
     // Location "/images/"
     LocationConfig loc_images;
@@ -234,7 +275,7 @@ void hardcodeMultipleLocServer(ServerConfig &server)
     std::vector<std::string> upload_methods;
     upload_methods.push_back("POST");
     loc_upload.setMethods(upload_methods);
-    loc_upload.setAutoIndex(false);
+    loc_upload.setAutoIndex(true);
 
     // Location "/form_result/"
     LocationConfig loc_form;
@@ -243,7 +284,7 @@ void hardcodeMultipleLocServer(ServerConfig &server)
     form_methods.push_back("POST");
     form_methods.push_back("GET");
     loc_form.setMethods(form_methods);
-    loc_form.setAutoIndex(false);
+    loc_form.setAutoIndex(true);
 
     // Add locations to server object
     std::vector<LocationConfig> locations;
