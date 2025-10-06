@@ -129,6 +129,25 @@ main {
     align-items: center;
 }
 
+.autoindex {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 9rem;
+}
+
+.autoindex a {
+    color: white;
+}
+
+.autoindex h1 {
+    margin-bottom: 1rem;
+}
+
+.autoindex a:visited {
+    color: gray;
+}
+
 footer {
     background: #2c3e50;
     color: #bdc3c7;

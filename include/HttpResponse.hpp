@@ -51,6 +51,7 @@ class HttpResponse {
 
 		void setContentType(const std::string &path);
 
+		void setResponse(int statusCode, const std::string &body);
 		void setError(const std::string &filepath, int status, const std::string &error_msg);
 		void set200(std::ifstream &file);
 

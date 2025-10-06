@@ -33,7 +33,7 @@ namespace utils {
     std::string getErrorPath(ServerConfig &serverOne, int errcode);
     void hardcodeMultipleLocServer(ServerConfig &server);
     bool isDirectory(const std::string& path);
-    std::string generateAutoindex(const std::string& dirPath, const std::string& urlPath);
+    std::string generateAutoindex(const std::string& dirPath);
 }
 
 #endif

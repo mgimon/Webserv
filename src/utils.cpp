@@ -92,7 +92,7 @@ int respond(int client_fd, const HttpRequest &http_request, ServerConfig &server
         {
             if (requestLocation->getAutoIndex() == false)
             {
-                http_response.setError(getErrorPath(serverOne, 404), 404, "Not Found");
+                http_response.setError(getErrorPath(serverOne, 403), 403, "Forbidden");
                 http_response.respondInClient(client_fd);
                 return (1);
             }
@@ -103,9 +103,10 @@ int respond(int client_fd, const HttpRequest &http_request, ServerConfig &server
                     root = serverOne.getDocumentRoot();
                 else
                     root = requestLocation->getRootOverride();
-                std::string autoindex_page = utils::generateAutoindex(root, path);
-                // setear el string autoindex_page como respuesta en funcion dinamica tipo setError
-                // llamar respondInClient
+                std::string autoindex_page = utils::generateAutoindex(root);
+                http_response.setResponse(200, autoindex_page);
+                http_response.respondInClient(client_fd);
+                return (0);
             }
         }
     }
@@ -234,15 +235,26 @@ bool isDirectory(const std::string& path)
     return (S_ISDIR(st.st_mode)); // true si es directorio, false si no
 }
 
-std::string generateAutoindex(const std::string& dirPath, const std::string& urlPath)
+std::string makeRelative(std::string path)
 {
-    DIR* dir = opendir(dirPath.c_str());
+    if (!path.empty() && path[0] == '/')
+        path = path.substr(1);
+    return (path);
+}
+
+std::string generateAutoindex(const std::string& dirPath)
+{
+    DIR* dir = opendir(makeRelative(dirPath).c_str());
     if (!dir)
         throw std::runtime_error("Cannot open directory");
 
     std::ostringstream html;
-    html << "<html><head><title>Index of " << urlPath << "</title></head>"
-         << "<body><h1>Index of " << urlPath << "</h1><ul>";
+    html << "<html><head><title>Autoindex</title>"
+            "<link rel=\"stylesheet\" href=\"/styles.css\" />"
+            "</head>"
+         << "<body class=\"autoindex\">"
+         << "<h1>Autoindex</h1><ul>";
+
 
     struct dirent* entry;
     while ((entry = readdir(dir)) != NULL)
@@ -256,9 +268,8 @@ std::string generateAutoindex(const std::string& dirPath, const std::string& url
         if (stat(fullPath.c_str(), &st) == 0 && S_ISDIR(st.st_mode))
             name += "/"; // marcar directorios
 
-        html << "<li><a href=\"" << urlPath;
-        if (urlPath[urlPath.size() - 1] != '/')
-            html << "/";
+        // link vacio, el hiperlink construye la url en el navegador
+        html << "<li><a href=\"";
         html << name << "\">" << name << "</a></li>";
     }
 
@@ -279,6 +290,7 @@ void hardcodeMultipleLocServer(ServerConfig &server)
 
     server.addListen(listenOne);
     server.setDocumentRoot("/var/www/html");
+    server.setDefaultFile("index.html");
 
     // Location "/"
     LocationConfig loc_root;
