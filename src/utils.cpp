@@ -30,14 +30,16 @@ bool isMethodAllowed(const std::vector<std::string> &methods, const std::string 
     return (false);
 }
 
-void validatePathWithIndex(std::string &path, ServerConfig &serverOne)
+void validatePathWithIndex(std::string &path, const LocationConfig *requestLocation, ServerConfig &serverOne)
 {
     if (path.empty() || path == "/")
         path = serverOne.getDefaultFile();
     else if (path[0] == '/')
         path.erase(0, 1);  // quitar '/'
-
-    path = serverOne.getDocumentRoot() + '/' + path;
+    if (!requestLocation->getRootOverride().empty())
+        path = requestLocation->getRootOverride() + '/' + path;
+    else
+        path = serverOne.getDocumentRoot() + '/' + path;
     if (path[0] == '/')
         path = path.substr(1);
 
@@ -76,7 +78,7 @@ int respond(int client_fd, const HttpRequest &http_request, ServerConfig &server
             return (1);
         }
         std::string path = http_request.getPath();
-        utils::validatePathWithIndex(path, serverOne);
+        utils::validatePathWithIndex(path, requestLocation, serverOne);
         if (!utils::isDirectory(path))
         {
             if (isMethodAllowed(requestLocation->getMethods(), "GET"))
@@ -319,6 +321,7 @@ void hardcodeMultipleLocServer(ServerConfig &server)
     // Location "/form_result/"
     LocationConfig loc_form;
     loc_form.setPath("/form_result/");
+    loc_form.setRootOverride("/form_result");
     std::vector<std::string> form_methods;
     form_methods.push_back("POST");
     form_methods.push_back("GET");

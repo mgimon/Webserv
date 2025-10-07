@@ -30,7 +30,7 @@ class ServerConfig {
 		size_t	client_maxbodysize_;
 		std::string document_root_;
 		std::string default_file_;
-		bool        autoindex_; // Las locations deben heredarla si no tienen regla propia
+		bool        autoindex_; // Las locations deben heredarla! o sobreescribirla
 		std::vector<LocationConfig> locations_;
 		std::vector<t_listen> listens_;
 		std::map<int, std::string> defaulterrorpages_; // Seteado en constructor por defecto. Usar addDefaultErrorPage(int, std::string) para sobreescribir una entrada o anadir

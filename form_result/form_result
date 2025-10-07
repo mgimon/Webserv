@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
-    <header><h1>Thanks for submitting!</h1></header>
+    <header><h1>Thanks for submitting!!</h1></header>
     <main>
         <div class="maindiv_first">
             <p>The form has been sent</p>
