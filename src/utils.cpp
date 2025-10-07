@@ -100,12 +100,7 @@ int respond(int client_fd, const HttpRequest &http_request, ServerConfig &server
             }
             else // serving autoindex
             {
-                std::string root;
-                if ((requestLocation->getRootOverride()).empty())
-                    root = serverOne.getDocumentRoot();
-                else
-                    root = requestLocation->getRootOverride();
-                std::string autoindex_page = utils::generateAutoindex(root);
+                std::string autoindex_page = utils::generateAutoindex(path);
                 http_response.setResponse(200, autoindex_page);
                 http_response.respondInClient(client_fd);
                 return (0);
