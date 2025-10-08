@@ -116,16 +116,46 @@ bool ConfigParser::isValidPort(int port) const {
     return port >= 1 && port <= 65535;
 }
 
+bool ConfigParser::isValidHost(const std::string& host) const {
+    if (host == "*" || host == "0.0.0.0") {
+        return true; // Wildcard o todas las interfaces
+    }
+
+    struct sockaddr_in sa;
+    return inet_pton(AF_INET, host.c_str(), &(sa.sin_addr)) != 0; // Validar dirección IPv4
+}
+
 void ConfigParser::parseDirective(const std::vector<std::string>& tokens, 
                                  ServerConfig& server, 
                                  LocationConfig* location) {
     if (tokens[0] == "listen") {
-        if (tokens.size() < 2) throw std::runtime_error("listen requires a port");
-        int port = std::atoi(tokens[1].c_str());
+        if (tokens.size() < 2) {
+            throw std::runtime_error("listen requires a host:port or port at line " + 
+                                     std::to_string(line_number_));
+        }
+
+        std::string host = "*";
+        int port = -1;
+
+        size_t colon_pos = tokens[1].find(':');
+        if (colon_pos != std::string::npos) {
+            host = tokens[1].substr(0, colon_pos);
+            port = std::atoi(tokens[1].substr(colon_pos + 1).c_str());
+        } else {
+            port = std::atoi(tokens[1].c_str());
+        }
+
         if (!isValidPort(port)) {
             throw std::runtime_error("Invalid port number at line " + 
                                      std::to_string(line_number_) + ": " + tokens[1]);
         }
+
+        if (!isValidHost(host)) {
+            throw std::runtime_error("Invalid host at line " + 
+                                     std::to_string(line_number_) + ": " + host);
+        }
+
+        server.setHost(host);
         server.setPort(port);
     }
     else if (tokens[0] == "root") {

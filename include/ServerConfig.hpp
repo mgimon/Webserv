@@ -74,7 +74,7 @@ class ServerConfig {
 		void setClientMaxBodySize(long size);
 		void setServerName(const std::string& name);
 
-		int getPort();
+		int getPort() const;
 		void setPort(int port);
 		void addDefaultErrorPages();
 		void print() const;
