@@ -30,106 +30,249 @@ bool isMethodAllowed(const std::vector<std::string> &methods, const std::string 
     return (false);
 }
 
-void validatePathWithIndex(std::string &path)
+void validatePathWithIndex(std::string &path, const LocationConfig *requestLocation, ServerConfig &serverOne)
 {
     if (path.empty() || path == "/")
-        path = "index.html";
+        path = serverOne.getDefaultFile();
     else if (path[0] == '/')
         path.erase(0, 1);  // quitar '/'
+    if (!requestLocation->getRootOverride().empty())
+        path = requestLocation->getRootOverride() + '/' + path;
+    else
+        path = serverOne.getDocumentRoot() + '/' + path;
+    if (path[0] == '/')
+        path = path.substr(1);
 
-    path = "var/www/html/" + path;
+    //std::cout << YELLOW << "Path is " << path << RESET << std::endl;
 }
 
-void handleKeepAlive(const HttpRequest &http_request, bool &keep_alive, HttpResponse &respondTool)
+std::string getErrorPath(ServerConfig &serverOne, int errcode)
 {
-    std::map<std::string, std::string> headers = respondTool.getHeaders();
-    std::map<std::string, std::string>::const_iterator it = http_request.getHeaders().find("Connection");
-    if (it != http_request.getHeaders().end() && it->second == "keep-alive")
-    {
-        headers["Connection"] = "keep-alive";
-        keep_alive = true;
-    }
-    else if (http_request.getVersion() == "HTTP/1.1")
-    {
-        headers["Connection"] = "keep-alive";
-        keep_alive = true;
-    }
-    else
-    {
-        headers["Connection"] = "close";
-        keep_alive = false;
-    }
-    respondTool.setHeaders(headers);
+    std::string errorpath = serverOne.getDocumentRoot() + "/" + serverOne.getErrorPageName(errcode);
+    if (!errorpath.empty() && errorpath[0] == '/')
+        errorpath = errorpath.substr(1);
+
+    //std::cout << RED << "Error path is " << errorpath << RESET << std::endl;
+    
+    return (errorpath);
 }
 
 // Debe incluir gestion de CGI
-int respond(int client_fd, const HttpRequest &http_request, ServerConfig &serverOne, bool &keep_alive)
+int respond(int client_fd, const HttpRequest &http_request, ServerConfig &serverOne)
 {
-    HttpResponse http_response;
+    HttpResponse    http_response;
     const std::string &method = http_request.getMethod();
+
     const LocationConfig *requestLocation = locationMatchforRequest(http_request.getPath(), serverOne.getLocations());
 
-    printLocation(requestLocation);
+    //printLocation(requestLocation);
+    //serverOne.print();
 
     if (method == "GET")
     {
         std::cout << "Method get" << std::endl;
-        if (isMethodAllowed(requestLocation->getMethods(), "GET"))
-            return respondGet(client_fd, http_request, http_response, keep_alive);
-        else
+        if (!requestLocation)
         {
-            http_response.setError("var/www/html/405MethodNotAllowed.html", 405, "Method Not Allowed");
+            http_response.setError(getErrorPath(serverOne, 404), 404, "Not Found");
             http_response.respondInClient(client_fd);
             return (1);
+        }
+        std::string path = http_request.getPath();
+        utils::validatePathWithIndex(path, requestLocation, serverOne);
+        if (!utils::isDirectory(path))
+        {
+            if (isMethodAllowed(requestLocation->getMethods(), "GET"))
+                return respondGet(serverOne, client_fd, path, http_request, http_response);
+            else
+            {
+                http_response.setError(getErrorPath(serverOne, 405), 405, "Method Not Allowed");
+                http_response.respondInClient(client_fd);
+                return (1);
+            }
+        }
+        else
+        {
+            if (requestLocation->getAutoIndex() == false)
+            {
+                http_response.setError(getErrorPath(serverOne, 403), 403, "Forbidden");
+                http_response.respondInClient(client_fd);
+                return (1);
+            }
+            else // serving autoindex
+            {
+                std::string autoindex_page = utils::generateAutoindex(path);
+                http_response.setResponse(200, autoindex_page);
+                http_response.respondInClient(client_fd);
+                return (0);
+            }
         }
     }
     else if (method == "POST")
     {
-        const char* response =
-        "HTTP/1.1 201 OK\r\n"
-        "Content-Type: text/html\r\n"
-        "Content-Length: 71\r\n"
-        "Connection: close\r\n"
-        "\r\n"
-        "<!DOCTYPE html><html><body><h1>Form recibido correctamente</h1></body></html>";
+        if (!requestLocation || !isMethodAllowed(requestLocation->getMethods(), "POST"))
+        {
+            http_response.setError(getErrorPath(serverOne, 405), 405, "Method Not Allowed");
+            http_response.respondInClient(client_fd);
+            return (1);
+        }
+        if (http_request.exceedsMaxBodySize(serverOne.getClientMaxBodySize()))
+        {
+            http_response.setError(getErrorPath(serverOne, 413), 413, "Payload Too Large");
+            http_response.respondInClient(client_fd);
+            return (1);
+        }
+        else
+        {
+            std::string response =
+            "HTTP/1.1 303 See Other\r\n"
+            "Location: /form_result\r\n"
+            "Content-Length: 0\r\n"
+            "Connection: close\r\n"
+            "\r\n";
 
-        send(client_fd, response, strlen(response), 0);
-        keep_alive = false;
-
-        return 0;
+            send(client_fd, response.c_str(), response.size(), 0);
+            http_response.respondInClient(client_fd);
+            return (0);
+        }
     }
     else if (method == "DELETE") {
-        // manejar DELETE
         std::cout << "Method delete" << std::endl;
         return (0);
     }
     else {
-        // metodo no soportado - 405 Method Not Allowed
         std::cout << "Other method" << std::endl;
+        http_response.setError(getErrorPath(serverOne, 405), 405, "Method Not Allowed");
+        http_response.respondInClient(client_fd);
         return (1);
     }
 }
 
-int respondGet(int client_fd, const HttpRequest &http_request, HttpResponse &http_response, bool &keep_alive)
+int respondGet(ServerConfig &serverOne, int client_fd, std::string path, const HttpRequest &http_request, HttpResponse &http_response)
 {
-    std::string path = http_request.getPath();
-    validatePathWithIndex(path);
+    int keep_alive = 0;
 
-    http_response.buildResponse(path);
-    handleKeepAlive(http_request, keep_alive, http_response);
+    http_response.buildResponse(path, serverOne);
 
+    std::map<std::string, std::string> headers = http_response.getHeaders();
+    std::map<std::string, std::string>::const_iterator it = http_request.getHeaders().find("Connection");
+    if (it != http_request.getHeaders().end() && it->second == "close")
+    {
+        headers["Connection"] = "close";
+        keep_alive = -1;
+    }
+    else
+        headers["Connection"] = "keep-alive";
+    
+    http_response.setHeaders(headers);
     http_response.respondInClient(client_fd);
-    return (0);
+
+    return (keep_alive);
 }
 
-int respondPost(int client_fd, const HttpRequest &http_request, HttpResponse &http_response, bool &keep_alive)
+int respondPost(int client_fd, const HttpRequest &http_request, HttpResponse &http_response)
 {
     (void)client_fd;
     (void)http_request;
     (void)http_response;
-    (void)keep_alive;
     
-    return 0;
+    return (0);
+}
+
+bool isCompleteRequest(const std::string& str)
+{
+    size_t headersEnd = str.find("\r\n\r\n");
+    if (headersEnd == std::string::npos)
+        return (false); 
+
+    size_t bodyStart = headersEnd + 4;
+    size_t contentLength = 0;
+
+    std::istringstream stream(str.substr(0, headersEnd));
+    std::string line;
+    while (std::getline(stream, line))
+    {
+        if (!line.empty() && line[line.size() - 1] == '\r')
+            line.erase(line.size() - 1, 1);
+
+        if (line.find("Content-Length:") == 0)
+        {
+            contentLength = std::atoi(line.substr(15).c_str());
+            break;
+        }
+    }
+
+    if (str.size() >= bodyStart + contentLength)
+        return (true);
+
+    return (false);
+}
+
+void readFromSocket(t_socket *client_socket, int epoll_fd, std::map<int, t_socket> &clientSockets)
+{
+    char buf[4096];
+    ssize_t bytesRead = recv(client_socket->socket_fd, buf, sizeof(buf), 0);
+
+    if (bytesRead <= 0)
+    {
+        // cliente cerro la conexion o error -> cerrar socket
+        epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_socket->socket_fd, NULL);
+        close(client_socket->socket_fd);
+        clientSockets.erase(client_socket->socket_fd);
+        return;
+    }
+    // leido -> append
+    client_socket->readBuffer.append(buf, bytesRead);
+}
+
+bool isDirectory(const std::string& path)
+{
+    struct stat st;
+    if (stat(path.c_str(), &st) != 0)
+        return (false); // path invalido
+    return (S_ISDIR(st.st_mode)); // true si es directorio, false si no
+}
+
+std::string makeRelative(std::string path)
+{
+    if (!path.empty() && path[0] == '/')
+        path = path.substr(1);
+    return (path);
+}
+
+std::string generateAutoindex(const std::string& dirPath)
+{
+    DIR* dir = opendir(makeRelative(dirPath).c_str());
+    if (!dir)
+        throw std::runtime_error("Cannot open directory");
+
+    std::ostringstream html;
+    html << "<html><head><title>Autoindex</title>"
+            "<link rel=\"stylesheet\" href=\"/styles.css\" />"
+            "</head>"
+         << "<body class=\"autoindex\">"
+         << "<h1>Autoindex</h1><ul>";
+
+
+    struct dirent* entry;
+    while ((entry = readdir(dir)) != NULL)
+    {
+        std::string name = entry->d_name;
+        if (name == "." || name == "..")
+            continue;
+
+        std::string fullPath = dirPath + "/" + name;
+        struct stat st;
+        if (stat(fullPath.c_str(), &st) == 0 && S_ISDIR(st.st_mode))
+            name += "/"; // marcar directorios
+
+        // link vacio, el hiperlink construye la url en el navegador
+        html << "<li><a href=\"";
+        html << name << "\">" << name << "</a></li>";
+    }
+
+    html << "</ul></body></html>";
+    closedir(dir);
+    return (html.str());
 }
 
 void hardcodeMultipleLocServer(ServerConfig &server)
@@ -144,15 +287,15 @@ void hardcodeMultipleLocServer(ServerConfig &server)
 
     server.addListen(listenOne);
     server.setDocumentRoot("/var/www/html");
+    server.setDefaultFile("index.html");
 
     // Location "/"
     LocationConfig loc_root;
     loc_root.setPath("/");
     std::vector<std::string> root_methods;
     root_methods.push_back("GET");
-    root_methods.push_back("POST");
     loc_root.setMethods(root_methods);
-    loc_root.setAutoIndex(false);
+    loc_root.setAutoIndex(true);
 
     // Location "/images/"
     LocationConfig loc_images;
@@ -168,42 +311,51 @@ void hardcodeMultipleLocServer(ServerConfig &server)
     std::vector<std::string> upload_methods;
     upload_methods.push_back("POST");
     loc_upload.setMethods(upload_methods);
-    loc_upload.setAutoIndex(false);
+    loc_upload.setAutoIndex(true);
 
     // Location "/form_result/"
     LocationConfig loc_form;
     loc_form.setPath("/form_result/");
+    loc_form.setRootOverride("/form_result");
     std::vector<std::string> form_methods;
-    upload_methods.push_back("POST");
+    form_methods.push_back("POST");
+    form_methods.push_back("GET");
     loc_form.setMethods(form_methods);
-    loc_form.setAutoIndex(false);
+    loc_form.setAutoIndex(true);
 
     // Add locations to server object
     std::vector<LocationConfig> locations;
     locations.push_back(loc_root);
     locations.push_back(loc_images);
     locations.push_back(loc_upload);
+    locations.push_back(loc_form);
     server.setLocations(locations);
 
 }
 
+std::string normalizePathForMatch(const std::string &path) {
+    if (path.empty()) return "/";
+    if (path[path.size() - 1] != '/')
+        return (path + "/");
+    return path;
+}
+
 const LocationConfig* locationMatchforRequest(const std::string &request_path, const std::vector<LocationConfig> &locations)
 {
+    std::string req = normalizePathForMatch(request_path);
     const LocationConfig* best_match = NULL;
     size_t best_len = 0;
 
     for (size_t i = 0; i < locations.size(); i++)
     {
-        const std::string &loc_path = locations[i].getPath();
-        if (request_path.find(loc_path) == 0) {
-            if (loc_path.size() > best_len) {
-                best_len = loc_path.size();
-                best_match = &locations[i];
-            }
+        std::string loc_path = normalizePathForMatch(locations[i].getPath());
+        if (req.find(loc_path) == 0 && loc_path.size() > best_len)
+        {
+            best_len = loc_path.size();
+            best_match = &locations[i];
         }
     }
-
-    return (best_match); // puede ser NULL si no hay match → usar defaults
+    return (best_match);
 }
 
 

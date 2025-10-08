@@ -50,6 +50,21 @@ void HttpResponse::setContentType(const std::string &path)
         content_type_ = "text/plain";
 }
 
+void HttpResponse::setResponse(int statusCode, const std::string &body)
+{
+    std::map<std::string, std::string> responseHeaders;
+    std::ostringstream oss;
+
+    this->setBody(body);
+    oss << body.size();
+
+    this->setStatusCode(statusCode);
+    this->setStatusMessage("OK");
+    responseHeaders.insert(std::make_pair("Content-Type", this->content_type_));
+    responseHeaders.insert(std::make_pair("Content-Length", oss.str()));
+    responseHeaders.insert(std::make_pair("Connection", "close"));
+    this->setHeaders(responseHeaders);
+}
 
 void HttpResponse::setError(const std::string &filepath, int statusCode, const std::string &error_msg) {
 
@@ -116,12 +131,12 @@ void HttpResponse::forceConnectionClose() {
     this->setHeaders(headers);
 }
 
-void HttpResponse::buildResponse(std::string path) {
+void HttpResponse::buildResponse(std::string path, ServerConfig &serverOne) {
 
     std::ifstream file(path.c_str());
     
     if (!file)
-        setError("var/www/html/404NotFound.html", 404, "Not Found :(");
+        setError(utils::getErrorPath(serverOne, 404), 404, "Not Found");
     else
         set200(file);
 }

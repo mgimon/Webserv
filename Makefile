@@ -4,12 +4,12 @@ SRC_DIR = src
 INC_DIR = include
 
 
-SRCS = main2.cpp utils.cpp utilsCC.cpp \
+SRCS = main.cpp utils.cpp utilsCC.cpp \
 		LocationConfig.cpp \
 		ServerConfig.cpp \
 		HttpRequest.cpp \
 		HttpResponse.cpp \
-		initServer.cpp 
+		initServer.cpp
 
 OBJS = $(SRCS:.cpp=.o)
 INCLUDES = -I $(INC_DIR)

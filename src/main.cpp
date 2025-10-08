@@ -1,46 +1,29 @@
 #include "../include/ServerConfig.hpp"
-#include "../include/HttpRequest.hpp"
-#include "../include/HttpResponse.hpp"
+#include "../include/initServer.hpp"
 #include "../include/utils.hpp"
 
-int status = 0;
-
-// TODO check keep alive vs status return
 int main() {
+	
+	std::vector<ServerConfig> serverList;
+	ServerConfig server;
+	ServerConfig server2;
 
-    /*** PARSEO ***/
-    //std::vector<ServerConfig>   serverList;
-    ServerConfig serverOne;
-    utils::hardcodeMultipleLocServer(serverOne); // hardcodear atributos de un objeto servidor para poder ir trabajando
+	//server.addListen((t_listen){ "127.0.0.1", 8080, 128});
+	utils::hardcodeMultipleLocServer(server);
 
-    /*** GESTION DE CONEXIONES ***/
-    // multiples clientes (poll/epoll ?)
-    // multiples servidores (procesos ?)
+	serverList.push_back(server);
 
-    int server_fd = socket(AF_INET, SOCK_STREAM, 0);
-    int client_fd;
-    sockaddr_in addr = {};
-    addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = INADDR_ANY;
-    addr.sin_port = htons(serverOne.getPort());
+	
+	try
+	{
+		initServer(serverList);
+	}
+	catch(const std::exception& e)
+	{
+		std::cerr << e.what() << std::endl;
+		return(EXIT_FAILURE);
+	}
 
-    bind(server_fd, (sockaddr*)&addr, sizeof(addr));
-    listen(server_fd, 1); // backlog
+	return(EXIT_SUCCESS);
 
-    /***  RESPUESTA ***/
-    // provisional para 1 cliente
-    client_fd = accept(server_fd, NULL, NULL);
-    bool    keep_alive = true;
-    while (keep_alive)
-    {
-        HttpRequest http_request(client_fd);
-        http_request.printRequest();
-        status = utils::respond(client_fd, http_request, serverOne, keep_alive);
-        if (!keep_alive)
-            break;
-    }
-    close(client_fd);
-    close(server_fd);
-
-    return status;
 }
