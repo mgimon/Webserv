@@ -7,6 +7,13 @@
 #include <set>
 #include "ServerConfig.hpp"
 #include "LocationConfig.hpp"
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
+#include <algorithm>
+#include <cctype>
+#include <sys/stat.h>
+#include <arpa/inet.h>
 
 class ConfigParser {
 private:
