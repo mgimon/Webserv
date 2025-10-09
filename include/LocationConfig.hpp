@@ -6,6 +6,7 @@
 
 class LocationConfig {
 	private:
+		std::pair<int, std::string> redirect_; // vacio si no hay redirect
 		std::string path_;                     // Ej: "/images/"
 		std::vector<std::string> methods_;     // Ej: {"GET", "POST"}
 		bool autoindex_;                       // true = on, false = off
@@ -21,11 +22,13 @@ class LocationConfig {
 		LocationConfig& operator=(const LocationConfig& other);
 		~LocationConfig();
 
+		std::pair<int, std::string> getRedirect() const;
 		std::string getPath() const;
 		std::vector<std::string> getMethods() const;
 		bool getAutoIndex() const;
 		std::string getRootOverride() const;
 
+		void setRedirect(const std::pair<int, std::string> &redirect);
 		void setPath(const std::string& path);
 		void setMethods(const std::vector<std::string>& methods);
 		void setAutoIndex(bool autoindex);

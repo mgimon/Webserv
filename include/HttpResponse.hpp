@@ -17,6 +17,7 @@
 class ServerConfig;
 namespace utils {
     std::string getErrorPath(ServerConfig &serverOne, int errcode);
+	std::string getRedirectMessage(int code);
 }
 
 class HttpResponse {
@@ -54,6 +55,7 @@ class HttpResponse {
 		void setResponse(int statusCode, const std::string &body);
 		void setError(const std::string &filepath, int status, const std::string &error_msg);
 		void set200(std::ifstream &file);
+		void setRedirectResponse(int statusCode);
 
 		void buildResponse(std::string path, ServerConfig &serverOne);
 		void forceConnectionClose();

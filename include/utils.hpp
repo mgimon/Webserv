@@ -34,6 +34,7 @@ namespace utils {
     void hardcodeMultipleLocServer(ServerConfig &server);
     bool isDirectory(const std::string& path);
     std::string generateAutoindex(const std::string& dirPath);
+    std::string getRedirectMessage(int code);
 }
 
 #endif

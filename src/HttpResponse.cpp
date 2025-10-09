@@ -109,7 +109,8 @@ void HttpResponse::setError(const std::string &filepath, int statusCode, const s
 
 }
 
-void HttpResponse::set200(std::ifstream &file) {
+void HttpResponse::set200(std::ifstream &file)
+{
     std::map<std::string, std::string> responseHeaders;
     std::string body((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
     std::ostringstream oss;
@@ -119,6 +120,23 @@ void HttpResponse::set200(std::ifstream &file) {
 
     this->setStatusCode(200);
     this->setStatusMessage("OK");
+    responseHeaders.insert(std::make_pair("Content-Type", this->content_type_));
+    responseHeaders.insert(std::make_pair("Content-Length", oss.str()));
+    responseHeaders.insert(std::make_pair("Connection", "close"));
+    this->setHeaders(responseHeaders);
+}
+
+void HttpResponse::setRedirectResponse(int statusCode)
+{
+    std::map<std::string, std::string> responseHeaders;
+    std::string body = "";
+    std::ostringstream oss;
+
+    this->setBody(body);
+    oss << body.size();
+
+    this->setStatusCode(statusCode);
+    this->setStatusMessage(utils::getRedirectMessage(statusCode));
     responseHeaders.insert(std::make_pair("Content-Type", this->content_type_));
     responseHeaders.insert(std::make_pair("Content-Length", oss.str()));
     responseHeaders.insert(std::make_pair("Connection", "close"));

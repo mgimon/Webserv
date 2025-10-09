@@ -65,6 +65,20 @@ int respond(int client_fd, const HttpRequest &http_request, ServerConfig &server
 
     const LocationConfig *requestLocation = locationMatchforRequest(http_request.getPath(), serverOne.getLocations());
 
+    if (requestLocation)
+    {
+        std::pair<int, std::string> redirect = requestLocation->getRedirect();
+        std::cout << RED << "Redirect int: " << redirect.first << RESET << std::endl;
+        std::cout << RED << "Redirect path: " << redirect.second << RESET << std::endl;
+        if (redirect.first != 0)
+        {
+                http_response.setRedirectResponse(redirect.first);
+                http_response.respondInClient(client_fd);
+                std::cout << RED << "Redirect served!" << RESET << std::endl;
+                return (0);
+        }
+    }
+
     //printLocation(requestLocation);
     //serverOne.print();
 
@@ -275,6 +289,18 @@ std::string generateAutoindex(const std::string& dirPath)
     return (html.str());
 }
 
+std::string getRedirectMessage(int code)
+{
+    switch(code)
+    {
+        case 301: return "301 Moved Permanently"; // algunos clientes cambian a GET
+        case 302: return "302 Found"; // algunos clientes cambian a GET
+        case 307: return "307 Temporary Redirect";
+        case 308: return "308 Permanent Redirect";
+        default:  return "Redirect";
+    }
+}
+
 void hardcodeMultipleLocServer(ServerConfig &server)
 {
     //server.setHost("0.0.0.0");
@@ -305,6 +331,25 @@ void hardcodeMultipleLocServer(ServerConfig &server)
     loc_images.setMethods(images_methods);
     loc_images.setAutoIndex(true);
 
+    // Location "/old_location/"
+    LocationConfig loc_old;
+    loc_old.setPath("/old_location/");
+    std::vector<std::string> old_methods;
+    old_methods.push_back("GET");
+    old_methods.push_back("POST");
+    loc_old.setMethods(old_methods);
+    loc_old.setAutoIndex(false);
+    loc_old.setRedirect(std::pair<int, std::string>(301, "/new_location/"));
+
+    // Location "/new_location/"
+    LocationConfig loc_new;
+    loc_new.setPath("/new_location/");
+    std::vector<std::string> new_methods;
+    new_methods.push_back("GET");
+    new_methods.push_back("POST");
+    loc_new.setMethods(new_methods);
+    loc_new.setAutoIndex(false);
+
     // Location "/upload/"
     LocationConfig loc_upload;
     loc_upload.setPath("/upload/");
@@ -329,6 +374,8 @@ void hardcodeMultipleLocServer(ServerConfig &server)
     locations.push_back(loc_images);
     locations.push_back(loc_upload);
     locations.push_back(loc_form);
+    locations.push_back(loc_old);
+    locations.push_back(loc_new);
     server.setLocations(locations);
 
 }

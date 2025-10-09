@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Form sent</title>
+    <title>New location</title>
     <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
-    <header><h1>Thanks for submitting!!</h1></header>
+    <header><h1>Site under construction</h1></header>
     <main>
         <div class="maindiv_first">
-            <p>The form has been sent</p>
+            <p>Great things will be happening here 😊</p>
         </div>
     </main>
     <footer><p>© 2025 Http Enjoyers</p></footer>
