@@ -128,7 +128,15 @@ bool ConfigParser::isValidHost(const std::string& host) const {
 void ConfigParser::parseDirective(const std::vector<std::string>& tokens, 
                                  ServerConfig& server, 
                                  LocationConfig* location) {
-    if (tokens[0] == "listen") {
+    if (tokens[0] == "error_page") {
+        if (tokens.size() < 3) {
+            throw std::runtime_error("error_page requires a code and a path at line " + std::to_string(line_number_));
+        }
+        int code = std::atoi(tokens[1].c_str());
+        std::string path = tokens[2];
+        server.addErrorPage(code, path);
+    }
+    else if (tokens[0] == "listen") {
         if (tokens.size() < 2) {
             throw std::runtime_error("listen requires a host:port or port at line " + 
                                      std::to_string(line_number_));
@@ -232,6 +240,10 @@ void ConfigParser::parseServerBlock(std::ifstream& file) {
         }
     }
     
+    std::map<int, std::string> errpages = server.getErrorPages();
+    if (errpages.find(404) == errpages.end()) {
+        server.addDefaultErrorPage(404, "/var/www/html/404NotFound.html");
+    }
     servers_.push_back(server);
 }
 
