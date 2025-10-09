@@ -52,7 +52,7 @@ class ServerConfig {
 		const std::vector<LocationConfig> &getLocations() const;
 		std::vector<t_listen> getListens() const;
 		std::string getErrorPageName(int errcode) const;
-		size_t getClientMaxBodySize() const;
+//             size_t getClientMaxBodySize() const;
 
 		void setBufferSize(int buffer_size);
 		void setDocumentRoot(const std::string& document_root);

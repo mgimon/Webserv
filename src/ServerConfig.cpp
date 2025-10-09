@@ -85,3 +85,39 @@ void ServerConfig::print() const
         std::cout << "    " << BLUE << "Location " << RESET << i << std::endl;
     }
 }
+
+void ServerConfig::addErrorPage(int code, const std::string& path) {
+    defaulterrorpages_[code] = path;
+}
+
+void ServerConfig::setHost(const std::string& host) {
+    host_ = host;
+}
+
+void ServerConfig::setPort(int port) {
+    if (listens_.empty()) {
+        t_listen listen;
+        listen.host = host_;
+        listen.port = port;
+        listen.backlog = 128;
+        listens_.push_back(listen);
+    } else {
+        listens_[0].port = port;
+    }
+}
+
+std::map<int, std::string> ServerConfig::getErrorPages() const {
+    return defaulterrorpages_;
+}
+
+int ServerConfig::getPort() const {
+    if (!listens_.empty())
+        return listens_[0].port;
+    return 0;
+}
+
+std::string ServerConfig::getHost() const {
+    if (!listens_.empty())
+        return listens_[0].host;
+    return host_;
+}

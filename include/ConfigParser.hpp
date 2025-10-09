@@ -30,7 +30,7 @@ private:
     // Métodos de parsing
     void parseServerBlock(std::ifstream& file);
     void parseLocationBlock(std::ifstream& file, ServerConfig& server);
-    void parseDirective(const std::vector<std::string>& tokens, ServerConfig& server, LocationConfig* location = nullptr);
+    void parseDirective(const std::vector<std::string>& tokens, ServerConfig& server, LocationConfig* location = NULL);
     
     // Métodos de validación
     void validateConfig() const;

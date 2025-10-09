@@ -83,20 +83,24 @@ void ConfigParser::parse() {
         
         if (tokens[0] == "server") {
             if (tokens.size() > 1 && tokens[1] != "{") {
-                throw std::runtime_error("Syntax error at line " + 
-                    std::to_string(line_number_) + ": expected '{' after 'server'");
+                std::stringstream ss;
+                ss << line_number_;
+                throw std::runtime_error("Syntax error at line " + ss.str() + ": expected '{' after 'server'");
             }
             open_blocks++;
             parseServerBlock(file);
             open_blocks--;
         } else if (tokens[0] == "}") {
             if (open_blocks == 0) {
-                throw std::runtime_error("Unexpected '}' at line " + std::to_string(line_number_));
+                std::stringstream ss;
+                ss << line_number_;
+                throw std::runtime_error("Unexpected '}' at line " + ss.str());
             }
             open_blocks--;
         } else {
-            throw std::runtime_error("Unexpected directive at line " + 
-                std::to_string(line_number_) + ": " + tokens[0]);
+            std::stringstream ss;
+            ss << line_number_;
+            throw std::runtime_error("Unexpected directive at line " + ss.str() + ": " + tokens[0]);
         }
     }
     
@@ -130,7 +134,9 @@ void ConfigParser::parseDirective(const std::vector<std::string>& tokens,
                                  LocationConfig* location) {
     if (tokens[0] == "error_page") {
         if (tokens.size() < 3) {
-            throw std::runtime_error("error_page requires a code and a path at line " + std::to_string(line_number_));
+            std::stringstream ss;
+            ss << line_number_;
+            throw std::runtime_error("error_page requires a code and a path at line " + ss.str());
         }
         int code = std::atoi(tokens[1].c_str());
         std::string path = tokens[2];
@@ -138,8 +144,9 @@ void ConfigParser::parseDirective(const std::vector<std::string>& tokens,
     }
     else if (tokens[0] == "listen") {
         if (tokens.size() < 2) {
-            throw std::runtime_error("listen requires a host:port or port at line " + 
-                                     std::to_string(line_number_));
+            std::stringstream ss;
+            ss << line_number_;
+            throw std::runtime_error("listen requires a host:port or port at line " + ss.str());
         }
 
         std::string host = "*";
@@ -154,13 +161,15 @@ void ConfigParser::parseDirective(const std::vector<std::string>& tokens,
         }
 
         if (!isValidPort(port)) {
-            throw std::runtime_error("Invalid port number at line " + 
-                                     std::to_string(line_number_) + ": " + tokens[1]);
+            std::stringstream ss;
+            ss << line_number_;
+            throw std::runtime_error("Invalid port number at line " + ss.str() + ": " + tokens[1]);
         }
 
         if (!isValidHost(host)) {
-            throw std::runtime_error("Invalid host at line " + 
-                                     std::to_string(line_number_) + ": " + host);
+            std::stringstream ss;
+            ss << line_number_;
+            throw std::runtime_error("Invalid host at line " + ss.str() + ": " + host);
         }
 
         server.setHost(host);
@@ -170,8 +179,9 @@ void ConfigParser::parseDirective(const std::vector<std::string>& tokens,
         if (tokens.size() < 2) throw std::runtime_error("root requires a path");
         struct stat info;
         if (stat(tokens[1].c_str(), &info) != 0 || !(info.st_mode & S_IFDIR)) {
-            throw std::runtime_error("Invalid root directory at line " + 
-                                     std::to_string(line_number_) + ": " + tokens[1]);
+            std::stringstream ss;
+            ss << line_number_;
+            throw std::runtime_error("Invalid root directory at line " + ss.str() + ": " + tokens[1]);
         }
         if (location) {
             location->setRootOverride(tokens[1]);
@@ -184,8 +194,9 @@ void ConfigParser::parseDirective(const std::vector<std::string>& tokens,
         std::vector<std::string> methods(tokens.begin() + 1, tokens.end());
         for (size_t i = 0; i < methods.size(); ++i) {
             if (!isValidMethod(methods[i])) {
-                throw std::runtime_error("Invalid HTTP method at line " + 
-                                         std::to_string(line_number_) + ": " + methods[i]);
+                std::stringstream ss;
+                ss << line_number_;
+                throw std::runtime_error("Invalid HTTP method at line " + ss.str() + ": " + methods[i]);
             }
         }
         if (location) {
@@ -195,8 +206,9 @@ void ConfigParser::parseDirective(const std::vector<std::string>& tokens,
     else if (tokens[0] == "autoindex") {
         if (tokens.size() < 2) throw std::runtime_error("autoindex requires on/off");
         if (tokens[1] != "on" && tokens[1] != "off") {
-            throw std::runtime_error("Invalid value for autoindex at line " + 
-                                     std::to_string(line_number_) + ": " + tokens[1]);
+            std::stringstream ss;
+            ss << line_number_;
+            throw std::runtime_error("Invalid value for autoindex at line " + ss.str() + ": " + tokens[1]);
         }
         bool autoindex = (tokens[1] == "on");
         if (location) {
@@ -204,8 +216,9 @@ void ConfigParser::parseDirective(const std::vector<std::string>& tokens,
         }
     }
     else {
-        throw std::runtime_error("Unknown directive at line " + 
-                                 std::to_string(line_number_) + ": " + tokens[0]);
+    std::stringstream ss;
+    ss << line_number_;
+    throw std::runtime_error("Unknown directive at line " + ss.str() + ": " + tokens[0]);
     }
 }
 
@@ -231,8 +244,9 @@ void ConfigParser::parseServerBlock(std::ifstream& file) {
         
         if (tokens[0] == "location") {
             if (tokens.size() < 2) {
-                throw std::runtime_error("Syntax error at line " + 
-                    std::to_string(line_number_) + ": location requires a path");
+                std::stringstream ss;
+                ss << line_number_;
+                throw std::runtime_error("Syntax error at line " + ss.str() + ": location requires a path");
             }
             parseLocationBlock(file, server);
         } else {
@@ -282,22 +296,25 @@ void ConfigParser::parseLocationBlock(std::ifstream& file, ServerConfig& server)
 
 // Métodos de validación
 void ConfigParser::validateConfig() const {
-    std::set<std::pair<std::string, int>> used_listens;
+    std::set<std::pair<std::string, int> > used_listens;
     for (size_t i = 0; i < servers_.size(); ++i) {
         const ServerConfig& server = servers_[i];
         
         if (isValidPort(server.getPort()) == false) { // Validar que el servidor tenga al menos un puerto configurado
-            throw std::runtime_error("Invalid port number: " + std::to_string(server.getPort()));
+            std::stringstream ss;
+            ss << server.getPort();
+            throw std::runtime_error("Invalid port number: " + ss.str());
         }
         
         if (server.getDocumentRoot().empty()) { // Validar que el servidor tenga un directorio raíz configurado
             throw std::runtime_error("Root directory not specified for server");
         }
 
-        std::pair<std::string, int> listen_key = {server.getHost(), server.getPort()};
+    std::pair<std::string, int> listen_key(server.getHost(), server.getPort());
         if (used_listens.find(listen_key) != used_listens.end()) { // Verificar conflictos en los puertos
-            throw std::runtime_error("Port conflict detected: " + server.getHost() + ":" + 
-                                     std::to_string(server.getPort()));
+            std::stringstream ss;
+            ss << server.getPort();
+            throw std::runtime_error("Port conflict detected: " + server.getHost() + ":" + ss.str());
         }
         used_listens.insert(listen_key);
     }
