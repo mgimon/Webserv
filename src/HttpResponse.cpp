@@ -126,7 +126,7 @@ void HttpResponse::set200(std::ifstream &file)
     this->setHeaders(responseHeaders);
 }
 
-void HttpResponse::setRedirectResponse(int statusCode)
+void HttpResponse::setRedirectResponse(int statusCode, const std::string &path)
 {
     std::map<std::string, std::string> responseHeaders;
     std::string body = "";
@@ -140,6 +140,7 @@ void HttpResponse::setRedirectResponse(int statusCode)
     responseHeaders.insert(std::make_pair("Content-Type", this->content_type_));
     responseHeaders.insert(std::make_pair("Content-Length", oss.str()));
     responseHeaders.insert(std::make_pair("Connection", "close"));
+    responseHeaders.insert(std::make_pair("Location", path));
     this->setHeaders(responseHeaders);
 }
 

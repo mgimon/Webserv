@@ -83,5 +83,6 @@ void ServerConfig::print() const
     for (size_t i = 0; i < locations_.size(); ++i)
     {
         std::cout << "    " << BLUE << "Location " << RESET << i << std::endl;
+        locations_[i].printLocation();
     }
 }

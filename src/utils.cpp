@@ -72,7 +72,7 @@ int respond(int client_fd, const HttpRequest &http_request, ServerConfig &server
         std::cout << RED << "Redirect path: " << redirect.second << RESET << std::endl;
         if (redirect.first != 0)
         {
-                http_response.setRedirectResponse(redirect.first);
+                http_response.setRedirectResponse(redirect.first, redirect.second);
                 http_response.respondInClient(client_fd);
                 std::cout << RED << "Redirect served!" << RESET << std::endl;
                 return (0);
@@ -338,17 +338,18 @@ void hardcodeMultipleLocServer(ServerConfig &server)
     old_methods.push_back("GET");
     old_methods.push_back("POST");
     loc_old.setMethods(old_methods);
-    loc_old.setAutoIndex(false);
-    loc_old.setRedirect(std::pair<int, std::string>(301, "/new_location/"));
+    loc_old.setAutoIndex(true);
+    loc_old.setRedirect(std::pair<int, std::string>(307, "/new_location/"));
 
     // Location "/new_location/"
     LocationConfig loc_new;
     loc_new.setPath("/new_location/");
+    loc_new.setRootOverride("/new_location");
     std::vector<std::string> new_methods;
     new_methods.push_back("GET");
     new_methods.push_back("POST");
     loc_new.setMethods(new_methods);
-    loc_new.setAutoIndex(false);
+    loc_new.setAutoIndex(true);
 
     // Location "/upload/"
     LocationConfig loc_upload;

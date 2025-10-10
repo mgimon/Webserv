@@ -12,7 +12,7 @@ int main() {
 	utils::hardcodeMultipleLocServer(server);
 
 	serverList.push_back(server);
-
+	server.print();
 	
 	try
 	{

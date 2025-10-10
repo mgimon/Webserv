@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include <iostream>
 
 class LocationConfig {
 	private:
@@ -33,6 +34,8 @@ class LocationConfig {
 		void setMethods(const std::vector<std::string>& methods);
 		void setAutoIndex(bool autoindex);
 		void setRootOverride(const std::string& root_override);
+
+		void printLocation() const;
 };
 
 #endif

@@ -28,3 +28,18 @@ void LocationConfig::setPath(const std::string& path) { path_ = path; }
 void LocationConfig::setMethods(const std::vector<std::string>& methods) { methods_ = methods; }
 void LocationConfig::setAutoIndex(bool autoindex) { autoindex_ = autoindex; }
 void LocationConfig::setRootOverride(const std::string& root_override) { root_override_ = root_override; }
+
+void LocationConfig::printLocation() const 
+{
+	    std::cout << "redirect: " << redirect_.first << " " << redirect_.second << std::endl;
+        std::cout << "path: " << path_ << std::endl;
+        std::cout << "methods: ";
+        for (std::size_t i = 0; i < methods_.size(); ++i)
+		{
+            if (i) std::cout << ",";
+            std::cout << methods_[i];
+        }
+        std::cout << std::endl;
+        std::cout << "autoindex: " << (autoindex_ ? "on" : "off") << std::endl;
+        std::cout << "root_override: " << root_override_ << std::endl;
+}
