@@ -35,6 +35,12 @@ void HttpRequest::printRequest() const {
 }
 
 
+void HttpRequest::trimPathSlashes(std::string &path)
+{
+    while (!path.empty() && path[path.size() - 1] == '/')
+        path.erase(path.size() - 1);
+}
+
 void HttpRequest::parseRequest(const std::string &str)
 {
     std::istringstream stream(str);
@@ -48,6 +54,8 @@ void HttpRequest::parseRequest(const std::string &str)
 
     std::istringstream requestLine(line);
     requestLine >> method_ >> path_ >> version_;
+
+    trimPathSlashes(path_);
 
     // Headers
     headers_.clear();
