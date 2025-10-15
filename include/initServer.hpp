@@ -8,7 +8,7 @@
 #include <sys/epoll.h>
 #include <cerrno>
 
-#define MAX_EVENTS 10
+#define MAX_EVENTS 512
 
 enum SocketType 
 {

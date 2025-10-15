@@ -160,14 +160,15 @@ void initServer(std::vector<ServerConfig> &serverList)
 {
 	std::list<t_socket> listenSockets = loadListenSockets(serverList);
 	std::map<int, t_socket> clientSockets;
-	epoll_event event; // NOTA: IMPLEMENTAR LISTA DE EVENTOS
+	epoll_event events[MAX_EVENTS]; // NOTA: IMPLEMENTAR LISTA DE EVENTOS
 
 	int epoll_fd = init_epoll(listenSockets);
 
 	signal(SIGINT, Signals::signalHandler);
 	while(Signals::running)
 	{
-		if (epoll_wait(epoll_fd, &event, 1, -1) == -1)
+		int n_events = epoll_wait(epoll_fd, events, MAX_EVENTS, -1);
+		if (n_events == -1)
 		{
 			if (errno == EINTR) // Si se recibe una señal se continua
 				continue;
@@ -177,37 +178,40 @@ void initServer(std::vector<ServerConfig> &serverList)
 				throw std::runtime_error(strerror(errno));
 			}
 		}
-		
-		t_socket *socket = static_cast<t_socket *>(event.data.ptr);
-		if (socket->type == LISTEN_SOCKET)
-			createClientSocket(socket, epoll_fd, clientSockets, listenSockets);
-		else
+		for (int i = 0; i < n_events; i++)
 		{
-			t_socket *client_socket = socket;
-
-			if (event.events & (EPOLLHUP | EPOLLERR))
+			t_socket *socket = static_cast<t_socket *>(events[i].data.ptr);
+			if (socket->type == LISTEN_SOCKET)
+				createClientSocket(socket, epoll_fd, clientSockets, listenSockets);
+			else
 			{
-				epoll_ctl(epoll_fd, EPOLL_CTL_DEL, socket->socket_fd, NULL);
-				close(socket->socket_fd);
-				clientSockets.erase(socket->socket_fd);
-				continue;
-			}
-			utils::readFromSocket(client_socket, epoll_fd, clientSockets);
-			if (utils::isCompleteRequest(client_socket->readBuffer))
-			{
-				// manejar petición HTTP
-				HttpRequest http_request(client_socket->readBuffer);
-				http_request.printRequest();
+				t_socket *client_socket = socket;
 
-				if (utils::respond(client_socket->socket_fd, http_request, client_socket->server) == -1)
+				//NOTA: REVISAR ESTE IF, CREO QUE HABRIA QUE USAR *socket EN VEZ DE events
+				if (events[i].events & (EPOLLHUP | EPOLLERR))
 				{
-
 					epoll_ctl(epoll_fd, EPOLL_CTL_DEL, socket->socket_fd, NULL);
 					close(socket->socket_fd);
 					clientSockets.erase(socket->socket_fd);
+					continue;
 				}
-				else
-					client_socket->readBuffer.clear();
+				utils::readFromSocket(client_socket, epoll_fd, clientSockets);
+				if (utils::isCompleteRequest(client_socket->readBuffer))
+				{
+					// manejar petición HTTP
+					HttpRequest http_request(client_socket->readBuffer);
+					http_request.printRequest();
+
+					if (utils::respond(client_socket->socket_fd, http_request, client_socket->server) == -1)
+					{
+
+						epoll_ctl(epoll_fd, EPOLL_CTL_DEL, socket->socket_fd, NULL);
+						close(socket->socket_fd);
+						clientSockets.erase(socket->socket_fd);
+					}
+					else
+						client_socket->readBuffer.clear();
+				}
 			}
 		}
 	}
