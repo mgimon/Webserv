@@ -1,7 +1,7 @@
 #include "../include/ServerConfig.hpp"
 
 /** CANONICAL **/
-ServerConfig::ServerConfig() : buffer_size_(4096), client_maxbodysize_(10485760), document_root_("./"), default_file_(""), autoindex_(true) { addDefaultErrorPages(); }
+ServerConfig::ServerConfig() : buffer_size_(4096), client_maxbodysize_(10), document_root_("./"), default_file_(""), autoindex_(true) { addDefaultErrorPages(); }
 ServerConfig::ServerConfig(int buffer_size, const std::string& document_root) : buffer_size_(buffer_size), client_maxbodysize_(10485760), document_root_(document_root), default_file_(""), autoindex_(true) { addDefaultErrorPages(); }
 ServerConfig::ServerConfig(const ServerConfig& other) : buffer_size_(other.buffer_size_), client_maxbodysize_(other.client_maxbodysize_), document_root_(other.document_root_), default_file_(other.default_file_), autoindex_(other.autoindex_), locations_(other.locations_), listens_(other.listens_), defaulterrorpages_(other.defaulterrorpages_) {}
 ServerConfig& ServerConfig::operator=(const ServerConfig& other) {
