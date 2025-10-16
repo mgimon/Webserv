@@ -10,14 +10,15 @@ SRCS = main.cpp utils.cpp utilsCC.cpp \
 		HttpRequest.cpp \
 		HttpResponse.cpp \
 		initServer.cpp \
-		ConfigParser.cpp
+		ConfigParser.cpp \ 
+		Signals.cpp
 
 OBJS = $(SRCS:.cpp=.o)
 INCLUDES = -I $(INC_DIR)
 
 CC = c++
 RM = rm -f
-CFLAGS = -Wall -Wextra -Werror -std=c++98 -g -fsanitize=address #-fsanitize=leak
+CFLAGS = -Wall -Wextra -Werror -std=c++98 -g #-fsanitize=address -fsanitize=leak
 
 
 all: $(NAME)

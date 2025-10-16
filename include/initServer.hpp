@@ -6,7 +6,9 @@
 #include <map>
 #include <fcntl.h>
 #include <sys/epoll.h>
-#include <errno.h>
+#include <cerrno>
+
+#define MAX_EVENTS 512
 
 enum SocketType 
 {
