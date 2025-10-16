@@ -1,6 +1,6 @@
-#include "../include/InitServer.hpp"
+#include "../include/initServer.hpp"
 #include "../include/utils.hpp"
-#include "../include/UtilsCC.hpp"
+#include "../include/utilsCC.hpp"
 #include "../include/Signals.hpp" 
 
 // Devuelve una lista de configuraciones posibles para un listen socket

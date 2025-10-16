@@ -17,7 +17,7 @@
 #include "HttpRequest.hpp"
 #include "HttpResponse.hpp"
 #include "ServerConfig.hpp"
-#include "InitServer.hpp"
+#include "initServer.hpp"
 
 namespace utils {
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../include/InitServer.hpp"
+#include "../include/initServer.hpp"
 #include "../include/ServerConfig.hpp"
 
 namespace UtilsCC

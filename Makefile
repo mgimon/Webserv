@@ -10,7 +10,7 @@ SRCS = main.cpp utils.cpp utilsCC.cpp \
 		HttpRequest.cpp \
 		HttpResponse.cpp \
 		initServer.cpp \
-		ConfigParser.cpp \ 
+		ConfigParser.cpp \
 		Signals.cpp
 
 OBJS = $(SRCS:.cpp=.o)
