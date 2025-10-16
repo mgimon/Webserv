@@ -37,7 +37,7 @@ void HttpRequest::printRequest() const {
 
 void HttpRequest::trimPathSlashes(std::string &path)
 {
-    while (!path.empty() && path[path.size() - 1] == '/')
+    while (!path.empty() && path != "/" && path[path.size() - 1] == '/')
         path.erase(path.size() - 1);
 }
 
