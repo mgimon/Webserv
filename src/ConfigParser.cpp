@@ -175,6 +175,21 @@ void ConfigParser::parseDirective(const std::vector<std::string>& tokens,
         server.setHost(host);
         server.setPort(port);
     }
+
+    else if (tokens[0] == "index") {
+        if (tokens.size() < 2) {
+            std::stringstream ss;
+            ss << line_number_;
+            throw std::runtime_error("index requires at least one file at line " + ss.str());
+        }
+        std::vector<std::string> index_files(tokens.begin() + 1, tokens.end());
+        if (location) {
+            location->setIndexFiles(index_files);
+        } else {
+            server.setIndexFiles(index_files);
+        }
+    }
+
     else if (tokens[0] == "root") {
         if (tokens.size() < 2) throw std::runtime_error("root requires a path");
         struct stat info;

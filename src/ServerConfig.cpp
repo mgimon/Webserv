@@ -122,3 +122,10 @@ std::string ServerConfig::getHost() const {
         return listens_[0].host;
     return host_;
 }
+
+const std::vector<std::string>& LocationConfig::getIndexFiles() const { 
+	return index_files_; 
+}
+void LocationConfig::setIndexFiles(const std::vector<std::string>& index_files) {
+	index_files_ = index_files; 
+}
