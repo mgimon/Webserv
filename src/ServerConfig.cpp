@@ -1,4 +1,6 @@
 #include "../include/ServerConfig.hpp"
+#define _GLIBCXX_USE_CXX11_ABI 0
+
 
 /** CANONICAL **/
 ServerConfig::ServerConfig() : buffer_size_(4096), client_maxbodysize_(10485760), document_root_("./"), default_file_(""), autoindex_(true) { addDefaultErrorPages(); }
@@ -123,9 +125,9 @@ std::string ServerConfig::getHost() const {
     return host_;
 }
 
-const std::vector<std::string>& LocationConfig::getIndexFiles() const { 
+const std::vector<std::string>& ServerConfig::getIndexFiles() const { 
 	return index_files_; 
 }
-void LocationConfig::setIndexFiles(const std::vector<std::string>& index_files) {
+void  ServerConfig::setIndexFiles(const std::vector<std::string>& index_files) {
 	index_files_ = index_files; 
 }
