@@ -125,9 +125,9 @@ std::string ServerConfig::getHost() const {
     return host_;
 }
 
-const std::vector<std::string>& ServerConfig::getIndexFiles() const { 
+const std::vector<std::string>& ServerConfig::getServerIndexFiles() const { 
 	return index_files_; 
 }
-void  ServerConfig::setIndexFiles(const std::vector<std::string>& index_files) {
+void  ServerConfig::setServerIndexFiles(const std::vector<std::string>& index_files) {
 	index_files_ = index_files; 
 }
