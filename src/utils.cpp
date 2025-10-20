@@ -64,7 +64,6 @@ int respond(int client_fd, const HttpRequest &http_request, ServerConfig &server
     const std::string &method = http_request.getMethod();
 
     const LocationConfig *requestLocation = locationMatchforRequest(http_request.getPath(), serverOne.getLocations());
-
     if (requestLocation)
     {
         std::pair<int, std::string> redirect = requestLocation->getRedirect();
@@ -149,8 +148,48 @@ int respond(int client_fd, const HttpRequest &http_request, ServerConfig &server
             return (0);
         }
     }
-    else if (method == "DELETE") {
-        std::cout << "Method delete" << std::endl;
+    else if (method == "DELETE")
+    {
+        // si method not allowed
+        if (!requestLocation || !isMethodAllowed(requestLocation->getMethods(), "DELETE"))
+        {
+            http_response.setError(getErrorPath(serverOne, 405), 405, "Method Not Allowed");
+            http_response.respondInClient(client_fd);
+            return (1);
+        }
+        // si ruta transversal
+        if (http_request.getPath().find("../") != std::string::npos)
+        {
+            http_response.setError(getErrorPath(serverOne, 403), 403, "Forbidden");
+            http_response.respondInClient(client_fd);
+            return (1);
+        }
+        std::string path = http_request.getPath();
+        utils::validatePathWithIndex(path, requestLocation, serverOne);
+        // si no existe
+        std::ifstream file(path.c_str());
+        if (!file.good())
+        {
+            http_response.setError(getErrorPath(serverOne, 404), 404, "Not Found");
+            http_response.respondInClient(client_fd);
+            return (1);
+        }
+        // si no tengo permisos o es un directorio
+        if (!utils::hasWXPermission(path) || utils::isDirectory(path))
+        {
+            http_response.setError(getErrorPath(serverOne, 403), 403, "Forbidden");
+            http_response.respondInClient(client_fd);
+            return (1);
+        }
+        // todo ok pero fallo
+        if (std::remove(path.c_str()) == -1)
+        {
+            http_response.setError(getErrorPath(serverOne, 500), 500, "Internal Server Error");
+            http_response.respondInClient(client_fd);
+            return (1);
+        }
+        http_response.setResponse(200, "OK");
+        http_response.respondInClient(client_fd);
         return (0);
     }
     else {
@@ -299,6 +338,30 @@ std::string getRedirectMessage(int code)
         case 308: return "308 Permanent Redirect";
         default:  return "Redirect";
     }
+}
+
+std::string getDirectoryName(const std::string &path)
+{
+    if (path.empty())
+        return ".";
+    size_t pos = path.rfind('/');
+
+    if (pos == std::string::npos)
+        return ".";
+    else if (pos == 0)
+        return "/";
+    else
+        return (path.substr(0, pos));
+}
+
+bool hasWXPermission(const std::string &path)
+{
+    std::string dir = getDirectoryName(path);
+
+    if (access(dir.c_str(), W_OK) == 0 && access(dir.c_str(), X_OK) == 0)
+        return (true);
+    else
+        return (false);
 }
 
 void hardcodeMultipleLocServer(ServerConfig &server)
