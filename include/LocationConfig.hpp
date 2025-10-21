@@ -12,6 +12,7 @@ class LocationConfig {
 		std::vector<std::string> methods_;     // Ej: {"GET", "POST"}
 		bool autoindex_;                       // true = on, false = off
 		std::string root_override_;            // Si un location tiene su propio root
+		std::vector<std::string>	index_files_;
 
 	public:
 		LocationConfig();
@@ -36,6 +37,8 @@ class LocationConfig {
 		void setRootOverride(const std::string& root_override);
 
 		void printLocation() const;
+		const std::vector<std::string>& getLocationIndexFiles() const;
+		void setLocationIndexFiles(const std::vector<std::string>&index_files);
 };
 
 #endif

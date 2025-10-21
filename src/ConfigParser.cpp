@@ -1,4 +1,5 @@
 #include "../include/ConfigParser.hpp"
+#include "../include/LocationConfig.hpp"
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
@@ -184,9 +185,9 @@ void ConfigParser::parseDirective(const std::vector<std::string>& tokens,
         }
         std::vector<std::string> index_files(tokens.begin() + 1, tokens.end());
         if (location) {
-            location->setIndexFiles(index_files);
+            location->setLocationIndexFiles(index_files);
         } else {
-            server.setIndexFiles(index_files);
+            server.setServerIndexFiles(index_files);
         }
     }
 

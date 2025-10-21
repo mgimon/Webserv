@@ -37,6 +37,7 @@ class ServerConfig {
 
 		std::string host_;
 		std::string server_name_;
+		std::vector<std::string> index_files_;
 
 	public:
 		ServerConfig();
@@ -78,6 +79,9 @@ class ServerConfig {
 		void setPort(int port);
 		void addDefaultErrorPages();
 		void print() const;
+
+		const std::vector<std::string>& getServerIndexFiles() const;
+		void setServerIndexFiles(const std::vector<std::string>&index_files);
 };
 
 #endif

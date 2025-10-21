@@ -1,5 +1,4 @@
 #include "../include/ServerConfig.hpp"
-#define _GLIBCXX_USE_CXX11_ABI 0
 
 
 /** CANONICAL **/
@@ -128,6 +127,6 @@ std::string ServerConfig::getHost() const {
 const std::vector<std::string>& ServerConfig::getServerIndexFiles() const { 
 	return index_files_; 
 }
-void  ServerConfig::setServerIndexFiles(const std::vector<std::string>& index_files) {
+void  ServerConfig::setServerIndexFiles(const std::vector<std::string>&index_files) {
 	index_files_ = index_files; 
 }
