@@ -57,13 +57,8 @@ std::string getErrorPath(ServerConfig &serverOne, int errcode)
     return (errorpath);
 }
 
-// Debe incluir gestion de CGI
-int respond(int client_fd, const HttpRequest &http_request, ServerConfig &serverOne)
+int serveRedirect(const LocationConfig *requestLocation, int client_fd, HttpResponse &http_response)
 {
-    HttpResponse    http_response;
-    const std::string &method = http_request.getMethod();
-
-    const LocationConfig *requestLocation = locationMatchforRequest(http_request.getPath(), serverOne.getLocations());
     if (requestLocation)
     {
         std::pair<int, std::string> redirect = requestLocation->getRedirect();
@@ -74,15 +69,14 @@ int respond(int client_fd, const HttpRequest &http_request, ServerConfig &server
                 http_response.setRedirectResponse(redirect.first, redirect.second);
                 http_response.respondInClient(client_fd);
                 std::cout << RED << "Redirect served!" << RESET << std::endl;
-                return (0);
+                return (1);
         }
     }
+    return (-1);
+}
 
-    //printLocation(requestLocation);
-    //serverOne.print();
-
-    if (method == "GET")
-    {
+int serveGet(const LocationConfig *requestLocation, int client_fd, const HttpRequest &http_request, HttpResponse &http_response, ServerConfig &serverOne)
+{
         std::cout << "Method get" << std::endl;
         if (!requestLocation)
         {
@@ -111,7 +105,7 @@ int respond(int client_fd, const HttpRequest &http_request, ServerConfig &server
                 http_response.respondInClient(client_fd);
                 return (1);
             }
-            else // serving autoindex
+            else
             {
                 std::string autoindex_page = utils::generateAutoindex(path);
                 http_response.setResponse(200, autoindex_page);
@@ -119,80 +113,94 @@ int respond(int client_fd, const HttpRequest &http_request, ServerConfig &server
                 return (0);
             }
         }
-    }
-    else if (method == "POST")
-    {
-        if (!requestLocation || !isMethodAllowed(requestLocation->getMethods(), "POST"))
-        {
-            http_response.setError(getErrorPath(serverOne, 405), 405, "Method Not Allowed");
-            http_response.respondInClient(client_fd);
-            return (1);
-        }
-        if (http_request.exceedsMaxBodySize(serverOne.getClientMaxBodySize()))
-        {
-            http_response.setError(getErrorPath(serverOne, 413), 413, "Payload Too Large");
-            http_response.respondInClient(client_fd);
-            return (1);
-        }
-        else
-        {
-            std::string response =
-            "HTTP/1.1 303 See Other\r\n"
-            "Location: /form_result\r\n"
-            "Content-Length: 0\r\n"
-            "Connection: close\r\n"
-            "\r\n";
+}
 
-            send(client_fd, response.c_str(), response.size(), 0);
-            http_response.respondInClient(client_fd);
-            return (0);
-        }
-    }
-    else if (method == "DELETE")
+int servePost(const LocationConfig *requestLocation, int client_fd, const HttpRequest &http_request, HttpResponse &http_response, ServerConfig &serverOne)
+{
+    if (!requestLocation || !isMethodAllowed(requestLocation->getMethods(), "POST"))
     {
-        // si method not allowed
-        if (!requestLocation || !isMethodAllowed(requestLocation->getMethods(), "DELETE"))
-        {
-            http_response.setError(getErrorPath(serverOne, 405), 405, "Method Not Allowed");
-            http_response.respondInClient(client_fd);
-            return (1);
-        }
-        // si ruta transversal
-        if (http_request.getPath().find("../") != std::string::npos)
-        {
-            http_response.setError(getErrorPath(serverOne, 403), 403, "Forbidden");
-            http_response.respondInClient(client_fd);
-            return (1);
-        }
-        std::string path = http_request.getPath();
-        utils::validatePathWithIndex(path, requestLocation, serverOne);
-        // si no existe
-        std::ifstream file(path.c_str());
-        if (!file.good())
-        {
-            http_response.setError(getErrorPath(serverOne, 404), 404, "Not Found");
-            http_response.respondInClient(client_fd);
-            return (1);
-        }
-        // si no tengo permisos o es un directorio
-        if (!utils::hasWXPermission(path) || utils::isDirectory(path))
-        {
-            http_response.setError(getErrorPath(serverOne, 403), 403, "Forbidden");
-            http_response.respondInClient(client_fd);
-            return (1);
-        }
-        // todo ok pero fallo
-        if (std::remove(path.c_str()) == -1)
-        {
-            http_response.setError(getErrorPath(serverOne, 500), 500, "Internal Server Error");
-            http_response.respondInClient(client_fd);
-            return (1);
-        }
-        http_response.setResponse(200, "OK");
+        http_response.setError(getErrorPath(serverOne, 405), 405, "Method Not Allowed");
+        http_response.respondInClient(client_fd);
+        return (1);
+    }
+    if (http_request.exceedsMaxBodySize(serverOne.getClientMaxBodySize()))
+    {
+        http_response.setError(getErrorPath(serverOne, 413), 413, "Payload Too Large");
+        http_response.respondInClient(client_fd);
+        return (1);
+    }
+    else
+    {
+        std::string response =
+        "HTTP/1.1 303 See Other\r\n"
+        "Location: /form_result\r\n"
+        "Content-Length: 0\r\n"
+        "Connection: close\r\n"
+        "\r\n";
+
+        send(client_fd, response.c_str(), response.size(), 0);
         http_response.respondInClient(client_fd);
         return (0);
     }
-    else {
+}
+
+int serveDelete(const LocationConfig *requestLocation, int client_fd, const HttpRequest &http_request, HttpResponse &http_response, ServerConfig &serverOne)
+{
+    if (!requestLocation || !isMethodAllowed(requestLocation->getMethods(), "DELETE"))
+    {
+        http_response.setError(getErrorPath(serverOne, 405), 405, "Method Not Allowed");
+        http_response.respondInClient(client_fd);
+        return (1);
+    }
+    if (http_request.getPath().find("../") != std::string::npos)
+    {
+        http_response.setError(getErrorPath(serverOne, 403), 403, "Forbidden");
+        http_response.respondInClient(client_fd);
+        return (1);
+    }
+    std::string path = http_request.getPath();
+    utils::validatePathWithIndex(path, requestLocation, serverOne);
+    std::ifstream file(path.c_str());
+    if (!file.good())
+    {
+        http_response.setError(getErrorPath(serverOne, 404), 404, "Not Found");
+        http_response.respondInClient(client_fd);
+        return (1);
+    }
+    if (!utils::hasWXPermission(path) || utils::isDirectory(path))
+    {
+        http_response.setError(getErrorPath(serverOne, 403), 403, "Forbidden");
+        http_response.respondInClient(client_fd);
+        return (1);
+    }
+    if (std::remove(path.c_str()) == -1)
+    {
+        http_response.setError(getErrorPath(serverOne, 500), 500, "Internal Server Error");
+        http_response.respondInClient(client_fd);
+        return (1);
+    }
+    http_response.setResponse(200, "OK");
+    http_response.respondInClient(client_fd);
+    return (0);
+}
+
+// Debe incluir gestion de CGI
+int respond(int client_fd, const HttpRequest &http_request, ServerConfig &serverOne)
+{
+    HttpResponse    http_response;
+    const std::string &method = http_request.getMethod();
+    const LocationConfig *requestLocation = locationMatchforRequest(http_request.getPath(), serverOne.getLocations());
+
+    if (serveRedirect(requestLocation, client_fd, http_response) == 1)
+        return (0);
+    if (method == "GET")
+        return (serveGet(requestLocation, client_fd, http_request, http_response, serverOne));
+    else if (method == "POST")
+        return (servePost(requestLocation, client_fd, http_request, http_response, serverOne));
+    else if (method == "DELETE")
+        return (serveDelete(requestLocation, client_fd, http_request, http_response, serverOne));
+    else
+    {
         std::cout << "Other method" << std::endl;
         http_response.setError(getErrorPath(serverOne, 405), 405, "Method Not Allowed");
         http_response.respondInClient(client_fd);
@@ -220,15 +228,6 @@ int respondGet(ServerConfig &serverOne, int client_fd, std::string path, const H
     http_response.respondInClient(client_fd);
 
     return (keep_alive);
-}
-
-int respondPost(int client_fd, const HttpRequest &http_request, HttpResponse &http_response)
-{
-    (void)client_fd;
-    (void)http_request;
-    (void)http_response;
-    
-    return (0);
 }
 
 bool isCompleteRequest(const std::string& str)
