@@ -43,3 +43,10 @@ void LocationConfig::printLocation() const
         std::cout << "autoindex: " << (autoindex_ ? "on" : "off") << std::endl;
         std::cout << "root_override: " << root_override_ << std::endl;
 }
+
+const std::vector<std::string>& LocationConfig::getLocationIndexFiles() const { 
+	return index_files_; 
+}
+void  LocationConfig::setLocationIndexFiles(const std::vector<std::string>&index_files) {
+	index_files_ = index_files; 
+}

@@ -1,5 +1,6 @@
 #include "../include/ServerConfig.hpp"
 
+
 /** CANONICAL **/
 ServerConfig::ServerConfig() : buffer_size_(4096), client_maxbodysize_(10000), document_root_("./"), default_file_(""), autoindex_(true) { addDefaultErrorPages(); }
 ServerConfig::ServerConfig(int buffer_size, const std::string& document_root) : buffer_size_(buffer_size), client_maxbodysize_(10485760), document_root_(document_root), default_file_(""), autoindex_(true) { addDefaultErrorPages(); }
@@ -121,4 +122,11 @@ std::string ServerConfig::getHost() const {
     if (!listens_.empty())
         return listens_[0].host;
     return host_;
+}
+
+const std::vector<std::string>& ServerConfig::getServerIndexFiles() const { 
+	return index_files_; 
+}
+void  ServerConfig::setServerIndexFiles(const std::vector<std::string>&index_files) {
+	index_files_ = index_files; 
 }
