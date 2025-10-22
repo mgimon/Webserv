@@ -4,7 +4,7 @@
 #include <iostream>
 
 
-/*int main() {
+int main() {
     ConfigParser parser;
     try {
         parser.parse("default.conf"); // Remplace par le nom de ton fichier de config
@@ -15,8 +15,8 @@
         return EXIT_FAILURE;
     }
     return EXIT_SUCCESS;
-}*/
-
+}
+/*
 int main() {
     std::vector<ServerConfig> serverList;
     ServerConfig server;
@@ -35,4 +35,4 @@ int main() {
         return(EXIT_FAILURE);
     }
     return(EXIT_SUCCESS);
-}
+}*/
