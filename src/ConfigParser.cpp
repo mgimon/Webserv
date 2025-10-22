@@ -207,8 +207,12 @@ void ConfigParser::parseDirective(const std::vector<std::string>& tokens,
             server.setDocumentRoot(tokens[1]);
         }
     }
-    else if (tokens[0] == "allowed_methods") {
-        if (tokens.size() < 2) throw std::runtime_error("allowed_methods requires methods");
+    else if (tokens[0] == "allowed_methods" || tokens[0] == "methods") {
+        if (tokens.size() < 2) {
+            std::stringstream ss;
+            ss << line_number_;
+            throw std::runtime_error("allowed_methods/methods requires methods at line " + ss.str());
+        }
         std::vector<std::string> methods(tokens.begin() + 1, tokens.end());
         for (size_t i = 0; i < methods.size(); ++i) {
             if (!isValidMethod(methods[i])) {
@@ -277,15 +281,12 @@ void ConfigParser::parseServerBlock(std::ifstream& file) {
         server.addDefaultErrorPage(404, "/var/www/html/404NotFound.html");
     }
 
-    // Si no hay ningún location definido, crear uno por defecto que cubra "/"
     if (server.getLocations().empty()) {
         LocationConfig default_loc;
         default_loc.setPath("/");
-        // Copiar índices del server al location por defecto (para que la lógica que usa location encuentre los index)
         const std::vector<std::string> &srv_indexes = server.getServerIndexFiles();
         if (!srv_indexes.empty())
             default_loc.setLocationIndexFiles(srv_indexes);
-        // Permitir al menos GET por defecto
         std::vector<std::string> methods;
         methods.push_back("GET");
         default_loc.setMethods(methods);
