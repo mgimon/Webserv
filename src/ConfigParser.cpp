@@ -188,6 +188,8 @@ void ConfigParser::parseDirective(const std::vector<std::string>& tokens,
             location->setLocationIndexFiles(index_files);
         } else {
             server.setServerIndexFiles(index_files);
+            if (!index_files.empty())
+                server.setDefaultFile(index_files[0]);
         }
     }
 
@@ -274,6 +276,25 @@ void ConfigParser::parseServerBlock(std::ifstream& file) {
     if (errpages.find(404) == errpages.end()) {
         server.addDefaultErrorPage(404, "/var/www/html/404NotFound.html");
     }
+
+    // Si no hay ningún location definido, crear uno por defecto que cubra "/"
+    if (server.getLocations().empty()) {
+        LocationConfig default_loc;
+        default_loc.setPath("/");
+        // Copiar índices del server al location por defecto (para que la lógica que usa location encuentre los index)
+        const std::vector<std::string> &srv_indexes = server.getServerIndexFiles();
+        if (!srv_indexes.empty())
+            default_loc.setLocationIndexFiles(srv_indexes);
+        // Permitir al menos GET por defecto
+        std::vector<std::string> methods;
+        methods.push_back("GET");
+        default_loc.setMethods(methods);
+        default_loc.setAutoIndex(false);
+        std::vector<LocationConfig> locations;
+        locations.push_back(default_loc);
+        server.setLocations(locations);
+    }
+
     servers_.push_back(server);
 }
 

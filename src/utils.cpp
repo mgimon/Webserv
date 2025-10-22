@@ -32,40 +32,18 @@ bool isMethodAllowed(const std::vector<std::string> &methods, const std::string 
 
 void validatePathWithIndex(std::string &path, const LocationConfig *requestLocation, ServerConfig &serverOne)
 {
-    // Determinar fichero índice: location > server index list > default_file_
-    std::string index_file = serverOne.getDefaultFile();
-    const std::vector<std::string> &server_indexes = serverOne.getServerIndexFiles();
-    if (!server_indexes.empty())
-        index_file = server_indexes[0];
-
-    if (requestLocation) {
-        const std::vector<std::string> &loc_indexes = requestLocation->getLocationIndexFiles();
-        if (!loc_indexes.empty())
-            index_file = loc_indexes[0];
-    }
-
     if (path.empty() || path == "/")
-        path = index_file;
+        path = serverOne.getDefaultFile();
     else if (path[0] == '/')
         path.erase(0, 1);  // quitar '/'
-
-    std::string root = serverOne.getDocumentRoot();
-    if (requestLocation && !requestLocation->getRootOverride().empty())
-        root = requestLocation->getRootOverride();
-
-    // Normalizar y concatenar root + path
-    if (!root.empty() && root[0] == '/')
-        root = root.substr(1);
-    if (!root.empty() && root[root.size() - 1] == '/')
-        root = root.substr(0, root.size() - 1);
-
-    if (!path.empty())
-        path = root + "/" + path;
+    if (!requestLocation->getRootOverride().empty())
+        path = requestLocation->getRootOverride() + '/' + path;
     else
-        path = root;
-
-    if (!path.empty() && path[0] == '/')
+        path = serverOne.getDocumentRoot() + '/' + path;
+    if (path[0] == '/')
         path = path.substr(1);
+
+    //std::cout << YELLOW << "Path is " << path << RESET << std::endl;
 }
 
 std::string getErrorPath(ServerConfig &serverOne, int errcode)
