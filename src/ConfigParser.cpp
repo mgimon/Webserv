@@ -295,7 +295,6 @@ void ConfigParser::parseServerBlock(std::ifstream& file) {
         locations.push_back(default_loc);
         server.setLocations(locations);
     }
-
     servers_.push_back(server);
 }
 

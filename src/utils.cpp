@@ -80,7 +80,7 @@ int respond(int client_fd, const HttpRequest &http_request, ServerConfig &server
     }
 
     //printLocation(requestLocation);
-    //serverOne.print();
+    serverOne.print();
 
     if (method == "GET")
     {
