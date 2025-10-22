@@ -184,30 +184,6 @@ int serveDelete(const LocationConfig *requestLocation, int client_fd, const Http
     return (0);
 }
 
-// Debe incluir gestion de CGI
-int respond(int client_fd, const HttpRequest &http_request, ServerConfig &serverOne)
-{
-    HttpResponse    http_response;
-    const std::string &method = http_request.getMethod();
-    const LocationConfig *requestLocation = locationMatchforRequest(http_request.getPath(), serverOne.getLocations());
-
-    if (serveRedirect(requestLocation, client_fd, http_response) == 1)
-        return (0);
-    if (method == "GET")
-        return (serveGet(requestLocation, client_fd, http_request, http_response, serverOne));
-    else if (method == "POST")
-        return (servePost(requestLocation, client_fd, http_request, http_response, serverOne));
-    else if (method == "DELETE")
-        return (serveDelete(requestLocation, client_fd, http_request, http_response, serverOne));
-    else
-    {
-        std::cout << "Other method" << std::endl;
-        http_response.setError(getErrorPath(serverOne, 405), 405, "Method Not Allowed");
-        http_response.respondInClient(client_fd);
-        return (1);
-    }
-}
-
 int respondGet(ServerConfig &serverOne, int client_fd, std::string path, const HttpRequest &http_request, HttpResponse &http_response)
 {
     int keep_alive = 0;
@@ -361,6 +337,59 @@ bool hasWXPermission(const std::string &path)
         return (true);
     else
         return (false);
+}
+
+// Debe incluir gestion de CGI
+int respond(int client_fd, const HttpRequest &http_request, ServerConfig &serverOne)
+{
+    HttpResponse    http_response;
+    const std::string &method = http_request.getMethod();
+    const LocationConfig *requestLocation = locationMatchforRequest(http_request.getPath(), serverOne.getLocations());
+
+    if (serveRedirect(requestLocation, client_fd, http_response) == 1)
+        return (0);
+    if (method == "GET")
+        return (serveGet(requestLocation, client_fd, http_request, http_response, serverOne));
+    else if (method == "POST")
+        return (servePost(requestLocation, client_fd, http_request, http_response, serverOne));
+    else if (method == "DELETE")
+        return (serveDelete(requestLocation, client_fd, http_request, http_response, serverOne));
+    else
+    {
+        std::cout << "Other method" << std::endl;
+        http_response.setError(getErrorPath(serverOne, 405), 405, "Method Not Allowed");
+        http_response.respondInClient(client_fd);
+        return (1);
+    }
+}
+
+void handleClientSocket(t_socket *socket, int epoll_fd, std::map<int, t_socket> &clientSockets, epoll_event (&events)[MAX_EVENTS], int i)
+{
+    t_socket *client_socket = socket;
+
+    if (events[i].events & (EPOLLHUP | EPOLLERR))
+    {
+        epoll_ctl(epoll_fd, EPOLL_CTL_DEL, socket->socket_fd, NULL);
+        close(socket->socket_fd);
+        clientSockets.erase(socket->socket_fd);
+        return ;
+    }
+    utils::readFromSocket(client_socket, epoll_fd, clientSockets);
+    if (utils::isCompleteRequest(client_socket->readBuffer))
+    {
+        HttpRequest http_request(client_socket->readBuffer);
+        http_request.printRequest();
+
+        if (utils::respond(client_socket->socket_fd, http_request, client_socket->server) == -1)
+        {
+
+            epoll_ctl(epoll_fd, EPOLL_CTL_DEL, socket->socket_fd, NULL);
+            close(socket->socket_fd);
+            clientSockets.erase(socket->socket_fd);
+        }
+        else
+            client_socket->readBuffer.clear();
+    }
 }
 
 void hardcodeMultipleLocServer(ServerConfig &server)

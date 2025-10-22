@@ -155,12 +155,11 @@ void createClientSocket(t_socket *listen_socket, int epoll_fd, std::map<int, t_s
 	}
 }
 
-
 void initServer(std::vector<ServerConfig> &serverList)
 {
 	std::list<t_socket> listenSockets = loadListenSockets(serverList);
 	std::map<int, t_socket> clientSockets;
-	epoll_event events[MAX_EVENTS]; // NOTA: IMPLEMENTAR LISTA DE EVENTOS
+	epoll_event events[MAX_EVENTS];
 
 	int epoll_fd = init_epoll(listenSockets);
 
@@ -170,7 +169,7 @@ void initServer(std::vector<ServerConfig> &serverList)
 		int n_events = epoll_wait(epoll_fd, events, MAX_EVENTS, -1);
 		if (n_events == -1)
 		{
-			if (errno == EINTR) // Si se recibe una señal se continua
+			if (errno == EINTR)
 				continue;
 			else
 			{
@@ -184,38 +183,9 @@ void initServer(std::vector<ServerConfig> &serverList)
 			if (socket->type == LISTEN_SOCKET)
 				createClientSocket(socket, epoll_fd, clientSockets, listenSockets);
 			else
-			{
-				t_socket *client_socket = socket;
-
-				//NOTA: REVISAR ESTE IF, CREO QUE HABRIA QUE USAR *socket EN VEZ DE events
-				if (events[i].events & (EPOLLHUP | EPOLLERR))
-				{
-					epoll_ctl(epoll_fd, EPOLL_CTL_DEL, socket->socket_fd, NULL);
-					close(socket->socket_fd);
-					clientSockets.erase(socket->socket_fd);
-					continue;
-				}
-				utils::readFromSocket(client_socket, epoll_fd, clientSockets);
-				if (utils::isCompleteRequest(client_socket->readBuffer))
-				{
-					// manejar petición HTTP
-					HttpRequest http_request(client_socket->readBuffer);
-					http_request.printRequest();
-
-					if (utils::respond(client_socket->socket_fd, http_request, client_socket->server) == -1)
-					{
-
-						epoll_ctl(epoll_fd, EPOLL_CTL_DEL, socket->socket_fd, NULL);
-						close(socket->socket_fd);
-						clientSockets.erase(socket->socket_fd);
-					}
-					else
-						client_socket->readBuffer.clear();
-				}
-			}
+				utils::handleClientSocket(socket, epoll_fd, clientSockets, events, i);
 		}
 	}
-	// Cleanup
 	UtilsCC::closeServer(epoll_fd, clientSockets, listenSockets);
 	std::cout << std::endl << "Server closed" << std::endl;
 }
