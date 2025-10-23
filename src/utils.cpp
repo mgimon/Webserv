@@ -77,7 +77,6 @@ int serveRedirect(const LocationConfig *requestLocation, int client_fd, HttpResp
 
 int serveGet(const LocationConfig *requestLocation, int client_fd, const HttpRequest &http_request, HttpResponse &http_response, ServerConfig &serverOne)
 {
-        std::cout << "Method get" << std::endl;
         if (!requestLocation)
         {
             http_response.setError(getErrorPath(serverOne, 404), 404, "Not Found");
@@ -115,6 +114,55 @@ int serveGet(const LocationConfig *requestLocation, int client_fd, const HttpReq
         }
 }
 
+bool isUpload(const HttpRequest &http_request)
+{
+    std::map<std::string, std::string> headers = http_request.getHeaders();
+    std::map<std::string, std::string>::const_iterator it = headers.find("Content-Type");
+    if (it == headers.end())
+        return (false);
+    const std::string value = it->second;
+    if (value.find("multipart/form-data") == std::string::npos)
+        return (false);
+    return (true);
+}
+
+int isStorageAllowed(ServerConfig &serverOne)
+{
+    std::vector<LocationConfig> locations = serverOne.getLocations();
+    for (size_t i = 0; i < locations.size(); i++)
+    {
+        if (locations[i].getPath() == "/upload/")
+        {
+            if (isMethodAllowed(locations[i].getMethods(), "POST"))
+                return (0);
+            return (405);
+        }
+    }
+    return (403);
+}
+
+int serveUpload(const LocationConfig *requestLocation, int client_fd, const HttpRequest &http_request, HttpResponse &http_response, ServerConfig &serverOne)
+{
+    (void)requestLocation;
+    int storageStatus = isStorageAllowed(serverOne);
+    if (storageStatus == 0 && (http_request.getPath() == "/upload" || http_request.getPath() == "/upload/"))
+    {
+        std::string response =
+        "HTTP/1.1 303 See Other\r\n"
+        "Location: /form_result\r\n"
+        "Content-Length: 0\r\n"
+        "Connection: close\r\n"
+        "\r\n";
+
+        send(client_fd, response.c_str(), response.size(), 0);
+        http_response.respondInClient(client_fd);
+        return (0);
+    }
+    http_response.setError(getErrorPath(serverOne, storageStatus), storageStatus, "Upload Unavailable");
+    http_response.respondInClient(client_fd);
+    return (1);
+}
+
 int servePost(const LocationConfig *requestLocation, int client_fd, const HttpRequest &http_request, HttpResponse &http_response, ServerConfig &serverOne)
 {
     if (!requestLocation || !isMethodAllowed(requestLocation->getMethods(), "POST"))
@@ -129,7 +177,9 @@ int servePost(const LocationConfig *requestLocation, int client_fd, const HttpRe
         http_response.respondInClient(client_fd);
         return (1);
     }
-    else
+    if (isUpload(http_request))
+        return (serveUpload(requestLocation, client_fd, http_request, http_response, serverOne));
+    else // Post successful obliga a pedir GET a form_result
     {
         std::string response =
         "HTTP/1.1 303 See Other\r\n"
