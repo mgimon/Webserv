@@ -156,6 +156,27 @@ std::string getUploadFilename(const HttpRequest &http_request)
     return (body.substr(start, end - start));
 }
 
+void trimWebKitFormBoundary(std::string &body)
+{
+    std::string fullLine;
+    std::string key = "------WebKitFormBoundary";
+
+    size_t start = body.find("\n\n");
+    if (start != std::string::npos)
+        body = body.substr(start + 2);
+    start = body.find(key);
+    if (start == std::string::npos)
+        return;
+    size_t end = body.find("\n", start);
+    if (end == std::string::npos)
+        end = body.length();
+    fullLine = body.substr(start, end - start);
+
+    size_t pos = 0;
+    while ((pos = body.find(fullLine, pos)) != std::string::npos) 
+        body.erase(pos, fullLine.length() + 1); // +1 = \n
+}
+
 int serveUpload(const LocationConfig *requestLocation, int client_fd, const HttpRequest &http_request, HttpResponse &http_response, ServerConfig &serverOne)
 {
     (void)requestLocation;
@@ -174,7 +195,8 @@ int serveUpload(const LocationConfig *requestLocation, int client_fd, const Http
         }
         else
         {
-            const std::string &body = http_request.getBody();
+            std::string body = http_request.getBody();
+            trimWebKitFormBoundary(body);
             if (write(fd, body.c_str(), body.size()) == -1)
             {
                 close(fd);
