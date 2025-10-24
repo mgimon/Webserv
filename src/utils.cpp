@@ -62,13 +62,13 @@ int serveRedirect(const LocationConfig *requestLocation, int client_fd, HttpResp
     if (requestLocation)
     {
         std::pair<int, std::string> redirect = requestLocation->getRedirect();
-        std::cout << RED << "Redirect int: " << redirect.first << RESET << std::endl;
-        std::cout << RED << "Redirect path: " << redirect.second << RESET << std::endl;
+        std::cout << YELLOW << "Redirect int: " << redirect.first << RESET << std::endl;
+        std::cout << YELLOW << "Redirect path: " << redirect.second << RESET << std::endl;
         if (redirect.first != 0)
         {
                 http_response.setRedirectResponse(redirect.first, redirect.second);
                 http_response.respondInClient(client_fd);
-                std::cout << RED << "Redirect served!" << RESET << std::endl;
+                std::cout << YELLOW << "Redirect served!" << RESET << std::endl;
                 return (1);
         }
     }
@@ -141,12 +141,50 @@ int isStorageAllowed(ServerConfig &serverOne)
     return (403);
 }
 
+std::string getUploadFilename(const HttpRequest &http_request)
+{
+    std::string body = http_request.getBody();
+    std::string key = "filename=\"";
+
+    size_t start = body.find(key);
+    if (start == std::string::npos)
+        return ("file.txt");
+    start += key.length();
+    size_t end = body.find("\"", start);
+    if (end == std::string::npos)
+        return ("file.txt");
+    return (body.substr(start, end - start));
+}
+
 int serveUpload(const LocationConfig *requestLocation, int client_fd, const HttpRequest &http_request, HttpResponse &http_response, ServerConfig &serverOne)
 {
     (void)requestLocation;
     int storageStatus = isStorageAllowed(serverOne);
+    std::string uploadPath = "upload/" + getUploadFilename(http_request); // file.txt if no name
     if (storageStatus == 0 && (http_request.getPath() == "/upload" || http_request.getPath() == "/upload/"))
     {
+        //std::cout << BLUE << "uploadPath es " << uploadPath << RESET << std::endl;
+        int fd = open(uploadPath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+        if (fd == -1)
+        {
+            std::cerr << RED << "open(): " << strerror(errno) <<  RESET << std::endl;
+            http_response.setError(getErrorPath(serverOne, 500), 500, "Upload Unavailable");
+            http_response.respondInClient(client_fd);
+            return (1);
+        }
+        else
+        {
+            const std::string &body = http_request.getBody();
+            if (write(fd, body.c_str(), body.size()) == -1)
+            {
+                close(fd);
+                http_response.setError(getErrorPath(serverOne, 500), 500, "Upload Unavailable");
+                http_response.respondInClient(client_fd);
+                return (1);
+            }
+            close(fd);
+        }
+
         std::string response =
         "HTTP/1.1 303 See Other\r\n"
         "Location: /form_result\r\n"
