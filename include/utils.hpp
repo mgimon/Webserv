@@ -12,6 +12,7 @@
 #include <sys/stat.h>
 #include <netinet/in.h>
 #include <unistd.h>
+#include <libgen.h>
 #include <list>
 
 #include "HttpRequest.hpp"
@@ -35,6 +36,8 @@ namespace utils {
     bool isDirectory(const std::string& path);
     std::string generateAutoindex(const std::string& dirPath);
     std::string getRedirectMessage(int code);
+    bool hasWXPermission(const std::string &path);
+    std::string getDirectoryName(const std::string &path);
 }
 
 #endif
