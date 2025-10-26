@@ -270,7 +270,27 @@ void ConfigParser::parseServerBlock(std::ifstream& file) {
                 ss << line_number_;
                 throw std::runtime_error("Syntax error at line " + ss.str() + ": location requires a path");
             }
-            parseLocationBlock(file, server);
+            std::string location_path = tokens[1];
+            //Si hay una llave en la misma línea, ignórala
+            if (tokens.size() > 2 && tokens[2] != "{") {
+                std::stringstream ss;
+                ss << line_number_;
+                throw std::runtime_error("Unexpected token after location path at line " + ss.str());
+            }
+            //Forzar lectura correcta del bloque
+            if (tokens.size() < 3 || tokens[2] != "{") {
+                std::string next_line;
+                while (std::getline(file, next_line)) {
+                    line_number_++;
+                    std::string cleaned_next = cleanLine(next_line);
+                    if (cleaned_next == "{") break;
+                    if (!isCommentOrEmpty(cleaned_next)) {
+                        std::stringstream ss;
+                        ss << line_number_;
+                        throw std::runtime_error("Expected '{' after location path at line " + ss.str());                    }
+                }
+            }
+            parseLocationBlock(file, server, location_path);
         } else {
             parseDirective(tokens, server);
         }
@@ -298,10 +318,8 @@ void ConfigParser::parseServerBlock(std::ifstream& file) {
     servers_.push_back(server);
 }
 
-void ConfigParser::parseLocationBlock(std::ifstream& file, ServerConfig& server) {
-    std::string line;
-    std::string location_path = splitTokens(cleanLine(current_line_))[1];
-    
+void ConfigParser::parseLocationBlock(std::ifstream& file, ServerConfig& server, const std::string& location_path) {
+    std::string line;    
     LocationConfig location;
     location.setPath(location_path);
     
@@ -324,11 +342,7 @@ void ConfigParser::parseLocationBlock(std::ifstream& file, ServerConfig& server)
         parseDirective(tokens, server, &location);
     }
     
-    server.setLocations(server.getLocations());
-    // Necesitas agregar el location al server
-    std::vector<LocationConfig> locations = server.getLocations();
-    locations.push_back(location);
-    server.setLocations(locations);
+    server.addLocation(location);
 }
 
 // Métodos de validación

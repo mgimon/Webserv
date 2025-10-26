@@ -82,6 +82,7 @@ class ServerConfig {
 
 		const std::vector<std::string>& getServerIndexFiles() const;
 		void setServerIndexFiles(const std::vector<std::string>&index_files);
+		void addLocation(const LocationConfig& location);
 };
 
 #endif

@@ -130,3 +130,7 @@ const std::vector<std::string>& ServerConfig::getServerIndexFiles() const {
 void  ServerConfig::setServerIndexFiles(const std::vector<std::string>&index_files) {
 	index_files_ = index_files; 
 }
+
+void ServerConfig::addLocation(const LocationConfig& location) {
+    locations_.push_back(location);
+}
