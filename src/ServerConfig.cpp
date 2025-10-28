@@ -62,6 +62,7 @@ void ServerConfig::print() const
     std::cout << BLUE << "  Buffer Size: " << RESET << buffer_size_ << std::endl;
     std::cout << BLUE << "  Client Max Body Size: " << RESET << client_maxbodysize_ << std::endl;
     std::cout << BLUE << "  Document Root: " << RESET << document_root_ << std::endl;
+    std::cout << BLUE << "  Default file: " << RESET << default_file_ << std::endl;
 
     std::cout << BLUE << "  Listens:" << RESET << std::endl;
     for (size_t i = 0; i < listens_.size(); ++i)

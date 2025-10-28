@@ -180,6 +180,7 @@ void initServer(std::vector<ServerConfig> &serverList)
 		for (int i = 0; i < n_events; i++)
 		{
 			t_socket *socket = static_cast<t_socket *>(events[i].data.ptr);
+			socket->server.print();
 			if (socket->type == LISTEN_SOCKET)
 				createClientSocket(socket, epoll_fd, clientSockets, listenSockets);
 			else

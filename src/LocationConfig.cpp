@@ -33,6 +33,13 @@ void LocationConfig::printLocation() const
 {
 	    std::cout << "redirect: " << redirect_.first << " " << redirect_.second << std::endl;
         std::cout << "path: " << path_ << std::endl;
+		std::cout << "index files: ";
+		for (std::size_t i = 0; i < index_files_.size(); ++i)
+		{
+            if (i) std::cout << ",";
+            std::cout << index_files_[i];
+        }
+		std::cout << std::endl;
         std::cout << "methods: ";
         for (std::size_t i = 0; i < methods_.size(); ++i)
 		{
