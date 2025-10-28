@@ -29,6 +29,7 @@ class LocationConfig {
 		std::vector<std::string> getMethods() const;
 		bool getAutoIndex() const;
 		std::string getRootOverride() const;
+		std::vector<std::string> getIndexs() const;
 
 		void setRedirect(const std::pair<int, std::string> &redirect);
 		void setPath(const std::string& path);

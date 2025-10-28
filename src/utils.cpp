@@ -30,10 +30,28 @@ bool isMethodAllowed(const std::vector<std::string> &methods, const std::string 
     return (false);
 }
 
+std::string getFirstValidFile(std::vector<std::string> files)
+{
+    for (std::vector<std::string>::iterator it = files.begin(); it != files.end(); ++it)
+    {
+        std::ifstream file(it->c_str());
+        if (file.good())
+            return (*it);
+    }
+
+    return ("");
+}
+
 void validatePathWithIndex(std::string &path, const LocationConfig *requestLocation, ServerConfig &serverOne)
 {
+    std::string indexToServe;
+    if (requestLocation->getLocationIndexFiles().empty())
+        indexToServe = serverOne.getDefaultFile();
+    else
+        indexToServe = getFirstValidFile(requestLocation->getLocationIndexFiles());
+
     if (path.empty() || path == "/")
-        path = serverOne.getDefaultFile();
+        path = indexToServe;
     else if (path[0] == '/')
         path.erase(0, 1);  // quitar '/'
     if (!requestLocation->getRootOverride().empty())
