@@ -3,7 +3,7 @@
 /** CANONICAL **/
 LocationConfig::LocationConfig() : redirect_(0, ""), path_("/"), autoindex_(false), root_override_("") {}
 LocationConfig::LocationConfig(const std::string& path, const std::vector<std::string>& methods, bool autoindex, const std::string& root_override) : redirect_(0, ""), path_(path), methods_(methods), autoindex_(autoindex), root_override_(root_override) {}
-LocationConfig::LocationConfig(const LocationConfig& other) : redirect_(other.redirect_), path_(other.path_), methods_(other.methods_), autoindex_(other.autoindex_), root_override_(other.root_override_) {}
+LocationConfig::LocationConfig(const LocationConfig& other) : redirect_(other.redirect_), path_(other.path_), methods_(other.methods_), autoindex_(other.autoindex_), root_override_(other.root_override_), index_files_(other.index_files_) {}
 LocationConfig& LocationConfig::operator=(const LocationConfig& other) {
 	if (this != &other) {
 		redirect_ = other.redirect_;
@@ -11,6 +11,7 @@ LocationConfig& LocationConfig::operator=(const LocationConfig& other) {
 		methods_ = other.methods_;
 		autoindex_ = other.autoindex_;
 		root_override_ = other.root_override_;
+		index_files_ = other.index_files_;
 	}
 	return *this;
 }
