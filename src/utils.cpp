@@ -42,16 +42,41 @@ std::string getFirstValidFile(std::vector<std::string> files)
     return ("");
 }
 
+bool isFile(std::string &path)
+{
+    if (path.empty())
+        return false;
+    size_t lastSlash = path.find_last_of('/');
+    size_t lastDot = path.find_last_of('.');
+    if (lastDot != std::string::npos && (lastSlash == std::string::npos || lastDot > lastSlash))
+        return (true);
+    if (path[path.size() - 1] != '/')
+        path += '/';
+    return (false);
+}
+
 void validatePathWithIndex(std::string &path, const LocationConfig *requestLocation, ServerConfig &serverOne)
 {
-    std::string indexToServe;
-    if (requestLocation->getLocationIndexFiles().empty())
-        indexToServe = serverOne.getDefaultFile();
-    else
-        indexToServe = getFirstValidFile(requestLocation->getLocationIndexFiles());
-
-    if (path.empty() || path == "/")
+    if (path.empty() || path == "/" || !isFile(path))
+    {
+        std::string indexToServe;
+        if (requestLocation->getLocationIndexFiles().empty())
+            indexToServe = serverOne.getDefaultFile();
+        else
+        {
+            std::vector<std::string> indexfiles = requestLocation->getLocationIndexFiles();
+            std::cout << RED <<
+            "Printing files: ";
+            for (std::vector<std::string>::size_type i = 0; i < indexfiles.size(); ++i)
+                std::cout << indexfiles[i] << " ";
+            std::cout << RESET << std::endl;
+            indexToServe = getFirstValidFile(requestLocation->getLocationIndexFiles());
+            std::cout << RED << "Indextoserve is: " << indexToServe << RESET << std::endl;
+        }
+        
         path = indexToServe;
+
+    }
     else if (path[0] == '/')
         path.erase(0, 1);  // quitar '/'
     if (!requestLocation->getRootOverride().empty())
@@ -103,6 +128,7 @@ int serveGet(const LocationConfig *requestLocation, int client_fd, const HttpReq
         }
         std::string path = http_request.getPath();
         utils::validatePathWithIndex(path, requestLocation, serverOne);
+        std::cout << GRAY << "Path is--->" << path << RESET << std::endl;
         if (!utils::isDirectory(path))
         {
             if (isMethodAllowed(requestLocation->getMethods(), "GET"))
