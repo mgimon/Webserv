@@ -30,11 +30,12 @@ bool isMethodAllowed(const std::vector<std::string> &methods, const std::string 
     return (false);
 }
 
-std::string getFirstValidFile(std::vector<std::string> files)
+std::string getFirstValidFile(std::vector<std::string> files, std::string &root)
 {
     for (std::vector<std::string>::iterator it = files.begin(); it != files.end(); ++it)
     {
-        std::ifstream file(it->c_str());
+        std::ifstream file((root + "/" + *it).c_str());
+        //std::cout << PINK << "Trying " << (root + "/" + *it) << RESET << std::endl;
         if (file.good())
             return (*it);
     }
@@ -70,7 +71,12 @@ void validatePathWithIndex(std::string &path, const LocationConfig *requestLocat
             for (std::vector<std::string>::size_type i = 0; i < indexfiles.size(); ++i)
                 std::cout << indexfiles[i] << " ";
             std::cout << RESET << std::endl;
-            indexToServe = getFirstValidFile(requestLocation->getLocationIndexFiles());
+            std::string root;
+            if (!requestLocation->getRootOverride().empty())
+                root = requestLocation->getRootOverride();
+            else
+                root = serverOne.getDocumentRoot();
+            indexToServe = getFirstValidFile(requestLocation->getLocationIndexFiles(), root);
             std::cout << RED << "Indextoserve is: " << indexToServe << RESET << std::endl;
         }
         
@@ -156,6 +162,31 @@ int serveGet(const LocationConfig *requestLocation, int client_fd, const HttpReq
                 return (0);
             }
         }
+}
+
+std::string getFormSuccessBody()
+{
+    std::string html =
+    "<!DOCTYPE html>\n"
+    "<html lang=\"en\">\n"
+    "<head>\n"
+    "    <meta charset=\"UTF-8\" />\n"
+    "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n"
+    "    <title>Form sent</title>\n"
+    "    <link rel=\"stylesheet\" href=\"/styles.css\" />\n"
+    "</head>\n"
+    "<body>\n"
+    "    <header><h1>Thanks for submitting!!</h1></header>\n"
+    "    <main>\n"
+    "        <div class=\"maindiv_first\">\n"
+    "            <p>The form has been sent</p>\n"
+    "        </div>\n"
+    "    </main>\n"
+    "    <footer><p>© 2025 Http Enjoyers</p></footer>\n"
+    "</body>\n"
+    "</html>\n";
+
+    return (html);
 }
 
 bool isUpload(const HttpRequest &http_request)
@@ -251,12 +282,15 @@ int serveUpload(const LocationConfig *requestLocation, int client_fd, const Http
             close(fd);
         }
 
+        std::string body = getFormSuccessBody();
+
         std::string response =
-        "HTTP/1.1 303 See Other\r\n"
-        "Location: /form_result\r\n"
-        "Content-Length: 0\r\n"
-        "Connection: close\r\n"
-        "\r\n";
+            "HTTP/1.1 201 Created\r\n"
+            "Content-Type: text/html\r\n"
+            "Content-Length: " + UtilsCC::to_stringCC(body.size()) + "\r\n"
+            "Connection: close\r\n"
+            "\r\n" +
+            body;
 
         send(client_fd, response.c_str(), response.size(), 0);
         http_response.respondInClient(client_fd);
@@ -283,14 +317,17 @@ int servePost(const LocationConfig *requestLocation, int client_fd, const HttpRe
     }
     if (isUpload(http_request))
         return (serveUpload(requestLocation, client_fd, http_request, http_response, serverOne));
-    else // Post successful obliga a pedir GET a form_result
+    else
     {
+        std::string body = getFormSuccessBody();
+
         std::string response =
-        "HTTP/1.1 303 See Other\r\n"
-        "Location: /form_result\r\n"
-        "Content-Length: 0\r\n"
-        "Connection: close\r\n"
-        "\r\n";
+            "HTTP/1.1 201 Created\r\n"
+            "Content-Type: text/html\r\n"
+            "Content-Length: " + UtilsCC::to_stringCC(body.size()) + "\r\n"
+            "Connection: close\r\n"
+            "\r\n" +
+            body;
 
         send(client_fd, response.c_str(), response.size(), 0);
         http_response.respondInClient(client_fd);

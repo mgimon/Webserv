@@ -19,6 +19,7 @@
 #include "HttpResponse.hpp"
 #include "ServerConfig.hpp"
 #include "initServer.hpp"
+#include "utilsCC.hpp"
 
 namespace utils {
 
