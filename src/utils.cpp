@@ -56,6 +56,23 @@ bool isFile(std::string &path)
     return (false);
 }
 
+// for autoindex requests, makes sure its not a pure location request
+bool isAutoindexDir(ServerConfig &serverOne, std::string &dirPath)
+{
+    std::vector<LocationConfig> locations = serverOne.getLocations();
+    std::string locationPath;
+
+    for (std::vector<LocationConfig>::iterator it = locations.begin(); it != locations.end(); ++it)
+    {
+        locationPath = it->getPath();
+        if (!locationPath.empty() && locationPath[locationPath.size() - 1] == '/')
+            locationPath = locationPath.substr(0, locationPath.size() - 1); // quitar '/' final
+        if (locationPath == dirPath && dirPath != "/")
+            return (false);
+    }
+    return (true);
+}
+
 void validatePathWithIndex(std::string &path, const LocationConfig *requestLocation, ServerConfig &serverOne)
 {
     if (path.empty() || path == "/" || !isFile(path))
@@ -133,6 +150,7 @@ int serveGet(const LocationConfig *requestLocation, int client_fd, const HttpReq
             return (1);
         }
         std::string path = http_request.getPath();
+
         utils::validatePathWithIndex(path, requestLocation, serverOne);
         std::cout << GRAY << "Path is--->" << path << RESET << std::endl;
         if (!utils::isDirectory(path))
