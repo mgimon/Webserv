@@ -62,12 +62,14 @@ bool isAutoindexDir(ServerConfig &serverOne, std::string &dirPath)
     std::vector<LocationConfig> locations = serverOne.getLocations();
     std::string locationPath;
 
+    if (dirPath == "/")
+        return (false);
     for (std::vector<LocationConfig>::iterator it = locations.begin(); it != locations.end(); ++it)
     {
         locationPath = it->getPath();
         if (!locationPath.empty() && locationPath[locationPath.size() - 1] == '/')
             locationPath = locationPath.substr(0, locationPath.size() - 1); // quitar '/' final
-        if (locationPath == dirPath && dirPath != "/")
+        if (locationPath == dirPath)
             return (false);
     }
     return (true);
@@ -150,21 +152,10 @@ int serveGet(const LocationConfig *requestLocation, int client_fd, const HttpReq
             return (1);
         }
         std::string path = http_request.getPath();
-
-        utils::validatePathWithIndex(path, requestLocation, serverOne);
-        std::cout << GRAY << "Path is--->" << path << RESET << std::endl;
-        if (!utils::isDirectory(path))
-        {
-            if (isMethodAllowed(requestLocation->getMethods(), "GET"))
-                return respondGet(serverOne, client_fd, path, http_request, http_response);
-            else
-            {
-                http_response.setError(getErrorPath(serverOne, 405), 405, "Method Not Allowed");
-                http_response.respondInClient(client_fd);
-                return (1);
-            }
-        }
-        else
+        std::cout << RED << path << " isAutoindexDir: " << isAutoindexDir(serverOne, path) << ", isDirectory: " << isDirectory(path) << RESET << std::endl;
+        // debe funcionar tambien para directorios en locations...
+        std::cout << RED << "Pasando " << serverOne.getDocumentRoot() + path << RESET << std::endl;
+        if (isAutoindexDir(serverOne, path) && isDirectory(serverOne.getDocumentRoot() + path))
         {
             if (requestLocation->getAutoIndex() == false)
             {
@@ -179,6 +170,16 @@ int serveGet(const LocationConfig *requestLocation, int client_fd, const HttpReq
                 http_response.respondInClient(client_fd);
                 return (0);
             }
+        }
+        utils::validatePathWithIndex(path, requestLocation, serverOne);
+        std::cout << GRAY << "Path is--->" << path << RESET << std::endl;
+        if (isMethodAllowed(requestLocation->getMethods(), "GET"))
+            return respondGet(serverOne, client_fd, path, http_request, http_response);
+        else
+        {
+            http_response.setError(getErrorPath(serverOne, 405), 405, "Method Not Allowed");
+            http_response.respondInClient(client_fd);
+            return (1);
         }
 }
 
