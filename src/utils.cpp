@@ -56,24 +56,27 @@ bool isFile(std::string &path)
     return (false);
 }
 
-// for autoindex requests, makes sure its not a pure location request
-bool isAutoindexDir(ServerConfig &serverOne, std::string &dirPath)
+// evals "/" as true
+int isLocation(ServerConfig &serverOne, std::string &path)
 {
     std::vector<LocationConfig> locations = serverOne.getLocations();
     std::string locationPath;
 
-    if (dirPath == "/")
-        return (false);
+    if (path == "/")
+        return (0);
     for (std::vector<LocationConfig>::iterator it = locations.begin(); it != locations.end(); ++it)
     {
         locationPath = it->getPath();
         if (!locationPath.empty() && locationPath[locationPath.size() - 1] == '/')
-            locationPath = locationPath.substr(0, locationPath.size() - 1); // quitar '/' final
-        if (locationPath == dirPath)
-            return (false);
+            locationPath = locationPath.substr(0, locationPath.size() - 1);
+        if (locationPath.empty())
+            continue;
+        if (path == locationPath || (path.find(locationPath + "/") == 0))
+            return (1);
     }
-    return (true);
+    return (-1);
 }
+
 
 void validatePathWithIndex(std::string &path, const LocationConfig *requestLocation, ServerConfig &serverOne)
 {
@@ -120,7 +123,7 @@ std::string getErrorPath(ServerConfig &serverOne, int errcode)
     if (!errorpath.empty() && errorpath[0] == '/')
         errorpath = errorpath.substr(1);
 
-    //std::cout << RED << "Error path is " << errorpath << RESET << std::endl;
+    std::cout << RED << "Error path is " << errorpath << RESET << std::endl;
     
     return (errorpath);
 }
@@ -145,17 +148,34 @@ int serveRedirect(const LocationConfig *requestLocation, int client_fd, HttpResp
 
 int serveGet(const LocationConfig *requestLocation, int client_fd, const HttpRequest &http_request, HttpResponse &http_response, ServerConfig &serverOne)
 {
-        if (!requestLocation)
+    if (!requestLocation)
+    {
+        http_response.setError(getErrorPath(serverOne, 404), 404, "Not Found");
+        http_response.respondInClient(client_fd);
+        return (1);
+    }
+    std::string path = http_request.getPath();
+    //std::cout << CYAN << "Path " << path << " is location?: " << std::boolalpha << isLocation(serverOne, path) << RESET << std::endl;
+    //http_response.setResponse(200, "200 OK");
+    //http_response.respondInClient(client_fd);
+
+    // asking for raw root (serves first valid index from vector)
+    if (isLocation(serverOne, path) == 0)
+    {
+        validatePathWithIndex(path, requestLocation, serverOne);
+        if (isMethodAllowed(requestLocation->getMethods(), "GET"))
+            return respondGet(serverOne, client_fd, path, http_request, http_response);
+        else
         {
-            http_response.setError(getErrorPath(serverOne, 404), 404, "Not Found");
+            http_response.setError(getErrorPath(serverOne, 405), 405, "Method Not Allowed");
             http_response.respondInClient(client_fd);
             return (1);
         }
-        std::string path = http_request.getPath();
-        std::cout << RED << path << " isAutoindexDir: " << isAutoindexDir(serverOne, path) << ", isDirectory: " << isDirectory(path) << RESET << std::endl;
-        // debe funcionar tambien para directorios en locations...
-        std::cout << RED << "Pasando " << serverOne.getDocumentRoot() + path << RESET << std::endl;
-        if (isAutoindexDir(serverOne, path) && isDirectory(serverOne.getDocumentRoot() + path))
+    }
+    // inside of root
+    if (isLocation(serverOne, path) == -1)
+    {
+        if (isDirectory(serverOne.getDocumentRoot() + path))
         {
             if (requestLocation->getAutoIndex() == false)
             {
@@ -165,22 +185,23 @@ int serveGet(const LocationConfig *requestLocation, int client_fd, const HttpReq
             }
             else
             {
-                std::string autoindex_page = utils::generateAutoindex(path);
+                std::string autoindex_page = utils::generateAutoindex(serverOne.getDocumentRoot() + path);
                 http_response.setResponse(200, autoindex_page);
                 http_response.respondInClient(client_fd);
                 return (0);
             }
         }
-        utils::validatePathWithIndex(path, requestLocation, serverOne);
-        std::cout << GRAY << "Path is--->" << path << RESET << std::endl;
         if (isMethodAllowed(requestLocation->getMethods(), "GET"))
-            return respondGet(serverOne, client_fd, path, http_request, http_response);
+            return respondGet(serverOne, client_fd, serverOne.getDocumentRoot() + path, http_request, http_response);
         else
         {
             http_response.setError(getErrorPath(serverOne, 405), 405, "Method Not Allowed");
             http_response.respondInClient(client_fd);
             return (1);
         }
+    }
+    return (0);
+    
 }
 
 std::string getFormSuccessBody()
