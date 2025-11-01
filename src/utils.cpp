@@ -30,7 +30,7 @@ bool isMethodAllowed(const std::vector<std::string> &methods, const std::string 
     return (false);
 }
 
-std::string getFirstValidFile(std::vector<std::string> files, std::string &root)
+std::string getFirstValidFile(std::vector<std::string> files, const std::string &root)
 {
     for (std::vector<std::string>::iterator it = files.begin(); it != files.end(); ++it)
     {
@@ -40,7 +40,7 @@ std::string getFirstValidFile(std::vector<std::string> files, std::string &root)
             return (*it);
     }
 
-    return ("");
+    return ("generic_error");
 }
 
 bool isFile(std::string &path)
@@ -75,6 +75,28 @@ int isLocation(ServerConfig &serverOne, std::string &path)
             return (1);
     }
     return (-1);
+}
+
+void trimPathSlash(std::string &path)
+{
+    if (!path.empty() && path[0] == '/' && path != "/")
+        path = path.substr(1);
+}
+
+bool isRawLocationRequest(ServerConfig &serverOne, std::string &path)
+{
+    std::vector<LocationConfig> locations = serverOne.getLocations();
+    std::string locationPath;
+
+    for (std::vector<LocationConfig>::iterator it = locations.begin(); it != locations.end(); ++it)
+    {
+        locationPath = it->getPath();
+        if (!locationPath.empty() && locationPath[locationPath.size() - 1] == '/')
+            locationPath = locationPath.substr(0, locationPath.size() - 1);
+        if (path == locationPath)
+            return (true);
+    }
+    return (false);
 }
 
 
@@ -173,7 +195,7 @@ int serveGet(const LocationConfig *requestLocation, int client_fd, const HttpReq
         }
     }
     // inside of root
-    if (isLocation(serverOne, path) == -1)
+    else if (isLocation(serverOne, path) == -1)
     {
         if (isDirectory(serverOne.getDocumentRoot() + path))
         {
@@ -193,6 +215,44 @@ int serveGet(const LocationConfig *requestLocation, int client_fd, const HttpReq
         }
         if (isMethodAllowed(requestLocation->getMethods(), "GET"))
             return respondGet(serverOne, client_fd, serverOne.getDocumentRoot() + path, http_request, http_response);
+        else
+        {
+            http_response.setError(getErrorPath(serverOne, 405), 405, "Method Not Allowed");
+            http_response.respondInClient(client_fd);
+            return (1);
+        }
+    }
+    // inside location
+    else if (isLocation(serverOne, path) == 1)
+    {
+        std::cout << PINK << path << RESET << std::endl;
+        std::string tempPath = path;
+        trimPathSlash(tempPath);
+        if (isDirectory(tempPath))
+        {
+            if (requestLocation->getAutoIndex() == false)
+            {
+                http_response.setError(getErrorPath(serverOne, 403), 403, "Forbidden");
+                http_response.respondInClient(client_fd);
+                return (1);
+            }
+            else
+            {
+                std::string autoindex_page = generateAutoindex(path);
+                http_response.setResponse(200, autoindex_page);
+                http_response.respondInClient(client_fd);
+                return (0);
+            }
+        }
+        std::cout << PINK << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << RESET << std::endl;
+        std::cout << PINK << requestLocation->getRootOverride() + path << RESET << std::endl;
+        if (isMethodAllowed(requestLocation->getMethods(), "GET"))
+        {
+            if (isRawLocationRequest(serverOne, path))
+                return respondGet(serverOne, client_fd, requestLocation->getRootOverride() + "/" + getFirstValidFile(requestLocation->getLocationIndexFiles(), requestLocation->getRootOverride()), http_request, http_response);
+            else
+                return respondGet(serverOne, client_fd, requestLocation->getRootOverride() + "/" + path, http_request, http_response);
+        }
         else
         {
             http_response.setError(getErrorPath(serverOne, 405), 405, "Method Not Allowed");
