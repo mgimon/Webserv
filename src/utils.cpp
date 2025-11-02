@@ -228,7 +228,7 @@ int serveGet(const LocationConfig *requestLocation, int client_fd, const HttpReq
         std::cout << PINK << path << RESET << std::endl;
         std::string tempPath = path;
         trimPathSlash(tempPath);
-        if (isDirectory(tempPath))
+        if (isDirectory(tempPath) && !isRawLocationRequest(serverOne, path))
         {
             if (requestLocation->getAutoIndex() == false)
             {
