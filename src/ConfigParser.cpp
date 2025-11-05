@@ -201,10 +201,26 @@ void ConfigParser::parseDirective(const std::vector<std::string>& tokens,
             ss << line_number_;
             throw std::runtime_error("Invalid root directory at line " + ss.str() + ": " + tokens[1]);
         }
+        server.setDocumentRoot(tokens[1]);
+    }
+    else if (tokens[0] == "root_override") {
+        if (tokens.size() < 2) {
+            std::stringstream ss;
+            ss << line_number_;
+            throw std::runtime_error("root_override requires a path at line " + ss.str());
+        }
+        struct stat info;
+        if (stat(tokens[1].c_str(), &info) != 0 || !(info.st_mode & S_IFDIR)) {
+            std::stringstream ss;
+            ss << line_number_;
+            throw std::runtime_error("Invalid root_override directory at line " + ss.str() + ": " + tokens[1]);
+        }
         if (location) {
-            location->setRootOverride(tokens[1]);
+            location->setRootOverride(tokens[1]); // Establece root_override para la location
         } else {
-            server.setDocumentRoot(tokens[1]);
+            std::stringstream ss;
+            ss << line_number_;
+            throw std::runtime_error("root_override can only be used inside a location block at line " + ss.str());
         }
     }
     else if (tokens[0] == "allowed_methods" || tokens[0] == "methods") {
@@ -235,6 +251,27 @@ void ConfigParser::parseDirective(const std::vector<std::string>& tokens,
         bool autoindex = (tokens[1] == "on");
         if (location) {
             location->setAutoIndex(autoindex);
+        }
+    }
+    else if (tokens[0] == "redirect") {
+        if (tokens.size() < 3) {
+            std::stringstream ss;
+            ss << line_number_;
+            throw std::runtime_error("redirect requires a code and a URL at line " + ss.str());
+        }
+        int code = std::atoi(tokens[1].c_str());
+        if (code < 300 || code > 399) {
+            std::stringstream ss;
+            ss << line_number_;
+            throw std::runtime_error("Invalid redirect code at line " + ss.str() + ": " + tokens[1]);
+        }
+        std::string url = tokens[2];
+        if (location) {
+            location->setRedirect(std::make_pair(code, url));
+        } else {
+            std::stringstream ss;
+            ss << line_number_;
+            throw std::runtime_error("redirect can only be used inside a location block at line " + ss.str());
         }
     }
     else {
