@@ -63,10 +63,24 @@ int createListenSocket(t_listen listen_conf)
 	return(socket_fd);
 }
 
-
-std::list<t_socket> loadListenSockets(std::vector<ServerConfig> &serverList)
+void addListenSocket(int epoll_fd, t_socket *listenSocket, std::map<int, t_fd_data*> &map_fds)
 {
-	std::list<t_socket> listenSockets;
+	epoll_event ev;
+
+	// Añadimos el socket al map de fds
+	t_fd_data *fd_data = new t_fd_data(listenSocket, LISTEN_SOCKET);
+	map_fds.insert(std::make_pair(listenSocket->socket_fd, fd_data));
+	
+	//NOTA: MIRAR POSIBLE IMPLEMENTACION DE edge-triggered epoll(EPOLLET)
+	// Añadimos el socket al epoll
+	ev.events = EPOLLIN; // Para que epoll nos notifique cuando se intente leer del fd (aceptar una conexion cuenta como leer)
+	ev.data.ptr = fd_data;
+	if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, listenSocket->socket_fd, &ev) == -1)
+		throw std::runtime_error(strerror(errno));
+}
+
+void loadListenSockets(std::vector<ServerConfig> &serverList, int epoll_fd, std::map<int, t_fd_data*> &map_fds)
+{
 	for (std::vector<ServerConfig>::iterator serv_it = serverList.begin(); serv_it != serverList.end(); ++serv_it)
 	{
 		std::vector<t_listen> listens = serv_it->getListens();
@@ -75,55 +89,51 @@ std::list<t_socket> loadListenSockets(std::vector<ServerConfig> &serverList)
 			try
 			{
 				int socket_fd = createListenSocket(*list_it);
-				t_socket socket = {socket_fd, *serv_it, LISTEN_SOCKET, ""};
-				listenSockets.push_back(socket);
+				t_socket *socket = new t_socket(socket_fd, *serv_it, "");
+				addListenSocket(epoll_fd, socket, map_fds);
 			}
 			catch(const std::exception& e)
 			{
-				UtilsCC::closeListenSockets(listenSockets);
-				throw;
+				UtilsCC::closeServer(epoll_fd, map_fds);
+				throw std::runtime_error(strerror(errno));
 			}
 		}
 	}
-	return (listenSockets);
 }
 
-int init_epoll(std::list<t_socket> &listenSockets)
+void addClientSocket(int epoll_fd, t_socket *clientSocket, std::map<int, t_fd_data*> &map_fds)
 {
-	int fd = epoll_create(1);
-	if (fd == -1)
-	{
-		UtilsCC::closeListenSockets(listenSockets);
-		throw std::runtime_error(strerror(errno));
-	}
-	for (std::list<t_socket>::iterator it = listenSockets.begin(); it != listenSockets.end(); ++it)
-	{
-		epoll_event ev;
+	epoll_event ev;
 
-		//NOTA: MIRAR POSIBLE IMPLEMENTACION DE edge-triggered epoll(EPOLLET)
-		ev.events = EPOLLIN; // Para que epoll nos notifique cuando se intente leer del fd (aceptar una conexion cuenta como leer)
-		ev.data.ptr = &(*it);
-		if (epoll_ctl(fd, EPOLL_CTL_ADD, it->socket_fd, &ev) == -1)
-		{
-			UtilsCC::closeListenSockets(listenSockets);
-			throw std::runtime_error(strerror(errno));
-		}
+	t_fd_data *fd_data = new t_fd_data(clientSocket, CLIENT_SOCKET);
+
+	// Añadimos el socket al epoll
+	ev.events = EPOLLIN;
+	ev.data.ptr = fd_data;
+	//Si no se añadido al epoll, lo sacamos del map y liberamos la memoria que acabamos de assignar con new
+	if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, clientSocket->socket_fd, &ev) == -1)
+	{
+		close(clientSocket->socket_fd);
+		delete(clientSocket);
+		delete(fd_data);
+		std::cout << strerror(errno) << std::endl;
 	}
-	return(fd);
+	else // Añadimos el socket al map de fds si no ha falaldo al mterlo en el epoll
+		map_fds.insert(std::make_pair(clientSocket->socket_fd, fd_data));
 }
 
-void createClientSocket(t_socket *listen_socket, int epoll_fd, std::map<int, t_socket> &clientSockets, std::list<t_socket> &listenSockets)
+void createClientSocket(t_socket *listen_socket, int epoll_fd, std::map<int, t_fd_data *> &map_fds)
 {
 	sockaddr client_addr;
 	socklen_t client_addr_size = sizeof(client_addr);
-	epoll_event ev;
 
+	listen_socket->server.print();
 	int client_fd = accept(listen_socket->socket_fd, &client_addr, &client_addr_size); // Al aceptar la conexion, se crea socket especifico para este cliente
-	//if (client_fd == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) Error muy especifico para un level triggered epoll (nivel que falle un write), no se si ponerlo
+	//if (client_fd == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) Error muy especifico para un level triggered epoll (nivel que falle un write), no se si ponerlo, ademas cero que no esta permitido por el saubject
 	//	return;
 	if (client_fd == -1)
 	{
-		UtilsCC::closeServer(epoll_fd, clientSockets, listenSockets);
+		UtilsCC::closeServer(epoll_fd, map_fds);
 		throw std::runtime_error(strerror(errno));
 	}
 
@@ -141,31 +151,24 @@ void createClientSocket(t_socket *listen_socket, int epoll_fd, std::map<int, t_s
 		return;
 	}
 
-	// Añadimos el socket al map de clientScokets
-	t_socket client_socket = {client_fd, listen_socket->server, CLIENT_SOCKET, ""};
-	std::map<int, t_socket>::iterator it_client_sock = clientSockets.insert(std::make_pair(client_fd, client_socket)).first; // Crear t_socket y meterlo en un map de clientes
-	
-	// Añadimos el socket al epoll
-	ev.events = EPOLLIN;
-	ev.data.ptr = &(it_client_sock->second);
-	if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client_fd, &ev) == -1)
-	{
-		UtilsCC::closeServer(epoll_fd, clientSockets, listenSockets);
-		throw std::runtime_error(strerror(errno));
-	}
+	t_socket *client_socket = new t_socket(client_fd, listen_socket->server, "");
+	addClientSocket(epoll_fd, client_socket, map_fds);
 }
 
 void initServer(std::vector<ServerConfig> &serverList)
 {
-	std::list<t_socket> listenSockets = loadListenSockets(serverList);
-	std::map<int, t_socket> clientSockets;
+	std::map<int, t_fd_data *> map_fds;
+	std::map<int, pid_t> map_pids;
+	int epoll_fd = epoll_create(1);
+	if (epoll_fd == -1)
+		throw std::runtime_error(strerror(errno));
+ 	loadListenSockets(serverList, epoll_fd, map_fds);
+	
 	epoll_event events[MAX_EVENTS];
-
-	int epoll_fd = init_epoll(listenSockets);
-
 	signal(SIGINT, Signals::signalHandler);
 	while(Signals::running)
 	{
+		//CHECK MAP_PIDS
 		int n_events = epoll_wait(epoll_fd, events, MAX_EVENTS, -1);
 		if (n_events == -1)
 		{
@@ -173,20 +176,23 @@ void initServer(std::vector<ServerConfig> &serverList)
 				continue;
 			else
 			{
-				UtilsCC::closeServer(epoll_fd, clientSockets, listenSockets);
+				UtilsCC::closeServer(epoll_fd, map_fds);
 				throw std::runtime_error(strerror(errno));
 			}
 		}
 		for (int i = 0; i < n_events; i++)
 		{
-			t_socket *socket = static_cast<t_socket *>(events[i].data.ptr);
-			socket->server.print();
-			if (socket->type == LISTEN_SOCKET)
-				createClientSocket(socket, epoll_fd, clientSockets, listenSockets);
-			else
-				utils::handleClientSocket(socket, epoll_fd, clientSockets, events, i);
+			t_fd_data *fd_data = static_cast<t_fd_data *>(events[i].data.ptr);
+			//socket->server.print();
+			if (fd_data->type == LISTEN_SOCKET)
+				//NOTA: QUIZAS ES MEJOR HACER EL CAST EN UNA LINEA APARTE O DENTRO DE LA FUNCION POR CLARIDAD
+				createClientSocket(static_cast<t_socket *>(fd_data->data), epoll_fd, map_fds);
+			else /*if (fd_data->type == CLIENT_SOCKET)*/
+				utils::handleClientSocket(fd_data, epoll_fd, map_fds, events, i);
+			//else if (fd_data->type == CGI_PIPE_IN)
+			//else if (fd_data->type == CGI_PIPE_OUT)
 		}
 	}
-	UtilsCC::closeServer(epoll_fd, clientSockets, listenSockets);
+	UtilsCC::closeServer(epoll_fd, map_fds);
 	std::cout << std::endl << "Server closed" << std::endl;
 }

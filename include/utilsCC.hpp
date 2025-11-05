@@ -6,6 +6,6 @@
 namespace UtilsCC
 {
 	std::string to_stringCC(int num);
-	void closeListenSockets(std::list<t_socket> &listenSockets);
-	void closeServer(int epoll_fd, std::map<int, t_socket> &clientSockets, std::list<t_socket> &listenSockets);
+	void closeServer(int epoll_fd, std::map<int, t_fd_data*> &map_fds);
+	void closeServer(int epoll_fd, std::map<int, t_fd_data*> &map_fds, std::map<int, pid_t> &map_pids);
 }

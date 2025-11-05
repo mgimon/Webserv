@@ -526,17 +526,20 @@ bool isCompleteRequest(const std::string& str)
     return (false);
 }
 
-void readFromSocket(t_socket *client_socket, int epoll_fd, std::map<int, t_socket> &clientSockets)
+void readFromSocket(t_fd_data *fd_data, t_socket *client_socket, int epoll_fd, std::map<int, t_fd_data *> &map_fds)
 {
     char buf[4096];
     ssize_t bytesRead = recv(client_socket->socket_fd, buf, sizeof(buf), 0);
 
     if (bytesRead <= 0)
     {
-        // cliente cerro la conexion o error -> cerrar socket
-        epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_socket->socket_fd, NULL);
-        close(client_socket->socket_fd);
-        clientSockets.erase(client_socket->socket_fd);
+        //NOTA: SE PODRIA AGRUPAR EL CONTENIDO DEL IF EN UNA FUNCION erase_fd_data()
+        int socket_fd = client_socket->socket_fd;
+        epoll_ctl(epoll_fd, EPOLL_CTL_DEL, socket_fd, NULL);
+        close(socket_fd);
+        delete(client_socket);
+        delete(fd_data);
+        map_fds.erase(socket_fd);
         return;
     }
     // leido -> append
@@ -654,29 +657,38 @@ int respond(int client_fd, const HttpRequest &http_request, ServerConfig &server
     }
 }
 
-void handleClientSocket(t_socket *socket, int epoll_fd, std::map<int, t_socket> &clientSockets, epoll_event (&events)[MAX_EVENTS], int i)
+void handleClientSocket(t_fd_data *fd_data, int epoll_fd, std::map<int, t_fd_data *> &map_fds, epoll_event (&events)[MAX_EVENTS], int i)
 {
-    t_socket *client_socket = socket;
+    t_socket *client_socket = static_cast<t_socket *>(fd_data->data);
+    client_socket->server.print();
 
     if (events[i].events & (EPOLLHUP | EPOLLERR))
     {
-        epoll_ctl(epoll_fd, EPOLL_CTL_DEL, socket->socket_fd, NULL);
-        close(socket->socket_fd);
-        clientSockets.erase(socket->socket_fd);
+        //NOTA: SE PODRIA AGRUPAR EL CONTENIDO DEL IF EN UNA FUNCION erase_fd_data()
+        int socket_fd = client_socket->socket_fd;
+        epoll_ctl(epoll_fd, EPOLL_CTL_DEL, socket_fd, NULL);
+        close(socket_fd);
+        delete(client_socket);
+        delete(fd_data);
+        map_fds.erase(socket_fd);
         return ;
     }
-    utils::readFromSocket(client_socket, epoll_fd, clientSockets);
+    utils::readFromSocket(fd_data, client_socket, epoll_fd, map_fds);
     if (utils::isCompleteRequest(client_socket->readBuffer))
     {
         HttpRequest http_request(client_socket->readBuffer);
+        //CHECK CGI Y LLAMARLO SI HACE FALTA
         http_request.printRequest();
 
         if (utils::respond(client_socket->socket_fd, http_request, client_socket->server) == -1)
         {
-
-            epoll_ctl(epoll_fd, EPOLL_CTL_DEL, socket->socket_fd, NULL);
-            close(socket->socket_fd);
-            clientSockets.erase(socket->socket_fd);
+            //NOTA: SE PODRIA AGRUPAR EL CONTENIDO DEL IF EN UNA FUNCION erase_fd_data()
+            int socket_fd = client_socket->socket_fd;
+            epoll_ctl(epoll_fd, EPOLL_CTL_DEL, socket_fd, NULL);
+            close(socket_fd);
+            delete(client_socket);
+            delete(fd_data);
+            map_fds.erase(socket_fd);
         }
         else
             client_socket->readBuffer.clear();

@@ -9,59 +9,43 @@ std::string UtilsCC::to_stringCC(int num)
 	return(ss.str());
 }
 
-void UtilsCC::closeListenSockets(std::list<t_socket> &listenSockets)
+void UtilsCC::closeServer(int epoll_fd, std::map<int, t_fd_data*> &map_fds)
 {
-    for (std::list<t_socket>::iterator it = listenSockets.begin(); it != listenSockets.end(); ++it)
-        close(it->socket_fd);
-}
-
-void UtilsCC::closeServer(int epoll_fd, std::map<int, t_socket> &clientSockets, std::list<t_socket> &listenSockets)
-{
-	closeListenSockets(listenSockets); // NOTA: CONVERTIR FUNCTION EN TEMPLATE
-	for (std::map<int, t_socket>::iterator it = clientSockets.begin(); it != clientSockets.end(); ++it)
-		close(it->second.socket_fd);
 	close(epoll_fd);
-}
+	std::map<int, t_fd_data*>::iterator it = map_fds.begin();
+	while (it != map_fds.end())
+	{
+		int fd = it->first;
+		t_fd_data *fd_data = it->second;
 
-/*std::vector<t_listen> getValidListens(const std::vector<ServerConfig> &serverList)
+		close(fd);
+		if (fd_data->type == LISTEN_SOCKET || fd_data->type == CLIENT_SOCKET)
+		{
+			delete(static_cast<t_socket*>(fd_data->data));
+			delete(fd_data);
+		}
+		std::map<int, t_fd_data*>::iterator aux = it;
+		++it;
+		map_fds.erase(aux);
+	}
+}
+/*void UtilsCC::closeServer(int epoll_fd, std::map<int, t_fd_data*> &map_fds, std::map<int, pid_t> &map_pids)
 {
-	std::vector<t_listen> valid_listens;
-	std::map<std::pair<int, std::string>, t_listen> map_l;
-
-	//Añadimos todos los listens a un map, si ya existe uno igual el map no lo añadira
-	for (std::vector<ServerConfig>::const_iterator it = serverList.begin(); it != serverList.end(); ++it)
+	close(epoll_fd);
+	std::map<int, t_fd_data*>::iterator it = map_fds.begin();
+	while (it != map_fds.end())
 	{
-		std::vector<t_listen> listens = it->getListens();
-		for (std::vector<t_listen>::iterator listen_it = listens.begin(); listen_it != listens.end(); ++listen_it)
-		{
-			std::pair<int, std::string> id = std::make_pair(listen_it->port, listen_it->ip);
-			map_l.insert(std::make_pair(id, *listen_it));
-		}
-	}
+		int fd = it->first;
+		t_fd_data *fd_data = it->second;
 
-	//Guardamos los listens validos. Si hay uno con ip 0.0.0.0, sera el unico de ese puerto que se guarde
-	int actual_port = -1;
-	bool wildcard = false;
-	for (std::map<std::pair<int, std::string>, t_listen>::iterator it = map_l.begin(); it != map_l.end(); ++it)
-	{
-		if (wildcard)
+		close(fd);
+		if (fd_data->type == LISTEN_SOCKET || fd_data->type == CLIENT_SOCKET)
 		{
-			if (it->first.first != actual_port)
-			{
-				valid_listens.push_back(it->second);
-				wildcard = false;
-			}
+			delete(static_cast<t_socket*>(fd_data->data));
+			delete(fd_data);
 		}
-		else
-		{
-			if (it->first.second == "0.0.0.0")
-			{
-				actual_port = it->first.first; 
-				wildcard = true;
-			}
-			valid_listens.push_back(it->second);
-		}
+		std::map<int, t_fd_data*>::iterator aux = it;
+		++it;
+		map_fds.erase(aux);
 	}
-	return(valid_listens);
-}
-*/
+}*/

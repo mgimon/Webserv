@@ -25,11 +25,11 @@ namespace utils {
 
     void printLocation(const LocationConfig *location);
     bool isCompleteRequest(const std::string& str);
-    void readFromSocket(t_socket *client_socket, int epoll_fd, std::map<int, t_socket> &clientSockets);
+    void readFromSocket(t_fd_data *fd_data, t_socket *client_socket, int epoll_fd, std::map<int, t_fd_data *> &map_fds);
 
     int respondGet(ServerConfig &serverOne, int client_fd, std::string path, const HttpRequest &http_request, HttpResponse &http_response);
     int	respond(int client_fd, const HttpRequest &http_request, ServerConfig &serverOne);
-    void handleClientSocket(t_socket *socket, int epoll_fd, std::map<int, t_socket> &clientSockets, epoll_event (&events)[MAX_EVENTS], int i);
+    void handleClientSocket(t_fd_data *fd_data, int epoll_fd, std::map<int, t_fd_data *> &map_fds, epoll_event (&events)[MAX_EVENTS], int i);
 
     const LocationConfig* locationMatchforRequest(const std::string &request_path, const std::vector<LocationConfig> &locations);
     std::string getErrorPath(ServerConfig &serverOne, int errcode);
