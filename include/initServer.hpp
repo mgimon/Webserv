@@ -14,9 +14,35 @@ enum FDType
 {
     LISTEN_SOCKET,
     CLIENT_SOCKET,
-	CGI_PIPE_IN,
-	CGI_PIPE_OUT
+	CGI_PIPE_WRITE,
+	CGI_PIPE_READ
 };
+
+typedef struct s_CGI_pipe_read
+{
+	int fd;
+	pid_t pid;
+	t_socket *client_socket;
+
+	s_CGI_pipe_read(int fd_in, pid_t pid_CGI, t_socket *conexion_socket) : 
+        fd(fd_in),
+        pid(pid_CGI),
+		client_socket(conexion_socket) {}
+}	t_CGI_pipe;
+
+typedef struct s_CGI_pipe_write
+{
+	int fd;
+	int fd_pipe_read;
+	pid_t pid;
+	t_socket *client_socket;
+
+	s_CGI_pipe_write(int fd_in, int fd_out, pid_t pid_CGI, t_socket *conexion_socket) : 
+        fd(fd_in),
+		fd_pipe_read(fd_out), 
+        pid(pid_CGI),
+		client_socket(conexion_socket) {}
+}	t_CGI_pipe;
 
 typedef struct s_socket
 {
