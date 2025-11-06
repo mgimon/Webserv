@@ -177,6 +177,38 @@ void ConfigParser::parseDirective(const std::vector<std::string>& tokens,
         server.setPort(port);
     }
 
+	else if (tokens[0] == "client_max_body_size" || tokens[0] == "client_maxbodysize") 
+	{
+        if (tokens.size() < 2) {
+            std::stringstream ss;
+            ss << line_number_;
+            throw std::runtime_error("client_max_body_size requires a size at line " + ss.str());
+        }
+        if (location) {
+            std::stringstream ss;
+            ss << line_number_;
+            throw std::runtime_error("client_max_body_size can only be set at server level at line " + ss.str());
+        }
+        std::string raw = tokens[1];
+        size_t multiplier = 1;
+        if (!raw.empty()) {
+            char suf = raw[raw.size() - 1];
+            if (suf == 'K' || suf == 'k') { multiplier = 1024; raw.resize(raw.size() - 1); }
+            else if (suf == 'M' || suf == 'm') { multiplier = 1024 * 1024; raw.resize(raw.size() - 1); }
+            else if (suf == 'G' || suf == 'g') { multiplier = 1024 * 1024 * 1024; raw.resize(raw.size() - 1); }
+        }
+
+        char* endptr = NULL;
+        long val = std::strtol(raw.c_str(), &endptr, 10);
+        if (endptr == raw.c_str() || *endptr != '\0' || val < 0) {
+            std::stringstream ss;
+            ss << line_number_;
+            throw std::runtime_error("Invalid client_max_body_size at line " + ss.str() + ": " + tokens[1]);
+        }
+        size_t size = static_cast<size_t>(val) * multiplier;
+        server.setClientMaxBodySize(static_cast<size_t>(size));
+    }
+
     else if (tokens[0] == "index") {
         if (tokens.size() < 2) {
             std::stringstream ss;
