@@ -244,12 +244,30 @@ int serveGet(const LocationConfig *requestLocation, int client_fd, const HttpReq
                 return (0);
             }
         }
+        if (isRawLocationRequest(serverOne, path) && requestLocation->getAutoIndex() == true)
+        {
+            std::string autoindex_page = generateAutoindex(path);
+            http_response.setResponse(200, autoindex_page);
+            http_response.respondInClient(client_fd);
+            return (0);
+        }
+        if (!requestLocation->getRootOverride().empty() && requestLocation->getLocationIndexFiles().empty())
+        {
+            http_response.setError(getErrorPath(serverOne, 404), 404, "Not Found");
+            http_response.respondInClient(client_fd);
+            return (1);
+        }
         std::cout << PINK << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << RESET << std::endl;
         std::cout << PINK << requestLocation->getRootOverride() + path << RESET << std::endl;
         if (isMethodAllowed(requestLocation->getMethods(), "GET"))
         {
             if (isRawLocationRequest(serverOne, path))
-                return respondGet(serverOne, client_fd, requestLocation->getRootOverride() + "/" + getFirstValidFile(requestLocation->getLocationIndexFiles(), requestLocation->getRootOverride()), http_request, http_response);
+            {
+                if (requestLocation->getLocationIndexFiles().empty())
+                    return respondGet(serverOne, client_fd, serverOne.getDocumentRoot() + "/" + getFirstValidFile(serverOne.getServerIndexFiles(), serverOne.getDocumentRoot()), http_request, http_response);
+                else
+                    return respondGet(serverOne, client_fd, requestLocation->getRootOverride() + "/" + getFirstValidFile(requestLocation->getLocationIndexFiles(), requestLocation->getRootOverride()), http_request, http_response);
+            }
             else
                 return respondGet(serverOne, client_fd, requestLocation->getRootOverride() + "/" + path, http_request, http_response);
         }
