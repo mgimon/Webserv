@@ -38,30 +38,21 @@
                 </div>
             </div>
             <div class="blockdiv_2">
-                <div class="top">
-                <!-- *** 
-                    GALERIA DE UPLOADS AQUI
-                --> </div>
-
                 <div class="bottom">
-                    <h4>Upload an image</h4>
+                    <h4>Upload a file</h4>
                     <form method="POST" action="/upload" enctype="multipart/form-data">
                         <input type="file" name="file" required />
                         <button type="submit">Upload</button>
                     </form>
+                    <div>
+                        <br>
+                    </div>
                     <h4>Delete</h4>
                     <span style="display: flex; gap: 0.5rem; align-items: center; padding-bottom: 2rem;">
                         <input type="text" id="filename" placeholder="filename.ext" style="flex: 1;" />
                         <button onclick="deleteFile()">Delete</button>
                     </span>
                 </div>
-            </div>
-            <div class="maindiv">
-
-                <!-- *** 
-                    COMENTARIOS DEL FORM AQUI
-                -->
-
             </div>
         </div>
     </main>
