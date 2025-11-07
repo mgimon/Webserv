@@ -10,7 +10,7 @@
         async function deleteFile() {
             const filename = document.getElementById("filename").value;
             if (!filename) return alert("Please enter a filename");
-            const res = await fetch("/uploads/" + filename, { method: "DELETE" });
+            const res = await fetch("/upload/" + filename, { method: "DELETE" });
             alert("Response status: " + res.status);
         }
     </script>

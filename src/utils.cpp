@@ -468,7 +468,9 @@ int serveDelete(const LocationConfig *requestLocation, int client_fd, const Http
         return (1);
     }
     std::string path = http_request.getPath();
-    utils::validatePathWithIndex(path, requestLocation, serverOne);
+    //utils::validatePathWithIndex(path, requestLocation, serverOne);
+    trimPathSlash(path);
+    std::cout << GRAY << "Delete request path is -->" << path << RESET << std::endl;
     std::ifstream file(path.c_str());
     if (!file.good())
     {
@@ -482,6 +484,7 @@ int serveDelete(const LocationConfig *requestLocation, int client_fd, const Http
         http_response.respondInClient(client_fd);
         return (1);
     }
+    // Deletion
     if (std::remove(path.c_str()) == -1)
     {
         http_response.setError(getErrorPath(serverOne, 500), 500, "Internal Server Error");
