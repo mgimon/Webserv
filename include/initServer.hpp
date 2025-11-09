@@ -67,4 +67,11 @@ typedef struct s_fd_data
         type(tp) {}
 }	t_fd_data;
 
+typedef struct s_server_context 
+{
+    int epoll_fd;
+    std::map<int, t_fd_data *> &map_fds;
+    std::map<int, pid_t> &map_pids;
+}	t_server_context;
+
 void initServer(std::vector<ServerConfig> &serverList);

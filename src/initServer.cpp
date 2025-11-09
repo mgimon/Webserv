@@ -108,7 +108,7 @@ void addClientSocket(int epoll_fd, t_socket *clientSocket, std::map<int, t_fd_da
 	t_fd_data *fd_data = new t_fd_data(clientSocket, CLIENT_SOCKET);
 
 	// Añadimos el socket al epoll
-	ev.events = EPOLLIN;
+	ev.events = EPOLLIN | EPOLLHUP | EPOLLERR;
 	ev.data.ptr = fd_data;
 	//Si no se añadido al epoll, lo sacamos del map y liberamos la memoria que acabamos de assignar con new
 	if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, clientSocket->socket_fd, &ev) == -1)
@@ -116,7 +116,7 @@ void addClientSocket(int epoll_fd, t_socket *clientSocket, std::map<int, t_fd_da
 		close(clientSocket->socket_fd);
 		delete(clientSocket);
 		delete(fd_data);
-		std::cout << strerror(errno) << std::endl;
+		std::cerr << strerror(errno) << std::endl;
 	}
 	else // Añadimos el socket al map de fds si no ha falaldo al mterlo en el epoll
 		map_fds.insert(std::make_pair(clientSocket->socket_fd, fd_data));
@@ -162,6 +162,7 @@ void initServer(std::vector<ServerConfig> &serverList)
 	int epoll_fd = epoll_create(1);
 	if (epoll_fd == -1)
 		throw std::runtime_error(strerror(errno));
+	t_server_context server_context = {epoll_fd, map_fds, map_pids};
  	loadListenSockets(serverList, epoll_fd, map_fds);
 	
 	epoll_event events[MAX_EVENTS];
@@ -183,12 +184,10 @@ void initServer(std::vector<ServerConfig> &serverList)
 		for (int i = 0; i < n_events; i++)
 		{
 			t_fd_data *fd_data = static_cast<t_fd_data *>(events[i].data.ptr);
-			//socket->server.print();
 			if (fd_data->type == LISTEN_SOCKET)
-				//NOTA: QUIZAS ES MEJOR HACER EL CAST EN UNA LINEA APARTE O DENTRO DE LA FUNCION POR CLARIDAD
 				createClientSocket(static_cast<t_socket *>(fd_data->data), epoll_fd, map_fds);
 			else /*if (fd_data->type == CLIENT_SOCKET)*/
-				utils::handleClientSocket(fd_data, epoll_fd, map_fds, events, i);
+				utils::handleClientSocket(fd_data, server_context, events, i);
 			//else if (fd_data->type == CGI_PIPE_IN)
 			//else if (fd_data->type == CGI_PIPE_OUT)
 		}

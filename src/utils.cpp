@@ -168,7 +168,7 @@ int serveRedirect(const LocationConfig *requestLocation, int client_fd, HttpResp
     return (-1);
 }
 
-int serveGet(const LocationConfig *requestLocation, int client_fd, const HttpRequest &http_request, HttpResponse &http_response, ServerConfig &serverOne)
+int  serveGet(const LocationConfig *requestLocation, int client_fd, const HttpRequest &http_request, HttpResponse &http_response, ServerConfig &serverOne)
 {
     if (!requestLocation)
     {
@@ -657,7 +657,7 @@ int respond(int client_fd, const HttpRequest &http_request, ServerConfig &server
     }
 }
 
-void handleClientSocket(t_fd_data *fd_data, int epoll_fd, std::map<int, t_fd_data *> &map_fds, epoll_event (&events)[MAX_EVENTS], int i)
+void handleClientSocket(t_fd_data *fd_data, t_server_context &server_context, epoll_event (&events)[MAX_EVENTS], int i)
 {
     t_socket *client_socket = static_cast<t_socket *>(fd_data->data);
     client_socket->server.print();
@@ -666,29 +666,39 @@ void handleClientSocket(t_fd_data *fd_data, int epoll_fd, std::map<int, t_fd_dat
     {
         //NOTA: SE PODRIA AGRUPAR EL CONTENIDO DEL IF EN UNA FUNCION erase_fd_data()
         int socket_fd = client_socket->socket_fd;
-        epoll_ctl(epoll_fd, EPOLL_CTL_DEL, socket_fd, NULL);
+        epoll_ctl(server_context.epoll_fd, EPOLL_CTL_DEL, socket_fd, NULL);
         close(socket_fd);
         delete(client_socket);
         delete(fd_data);
-        map_fds.erase(socket_fd);
+        server_context.map_fds.erase(socket_fd);
+
+        //Liberar pipes de cgi si el cliente estaba pidiendo un py
         return ;
     }
-    utils::readFromSocket(fd_data, client_socket, epoll_fd, map_fds);
-    if (utils::isCompleteRequest(client_socket->readBuffer))
+    // NOTA: He cambiado esto para comprobar si se ha acabdo de leer antes de leer
+    if (!utils::isCompleteRequest(client_socket->readBuffer))
+        utils::readFromSocket(fd_data, client_socket, server_context.epoll_fd, server_context.map_fds);
+    else
     {
         HttpRequest http_request(client_socket->readBuffer);
-        //CHECK CGI Y LLAMARLO SI HACE FALTA
         http_request.printRequest();
+        //CHECK CGI Y LLAMARLO SI HACE FALTA
 
+        /*NOTA: Hay que hacer que no se entre en response hasta que el processo del cgi este acabdo,
+        no se como hacerlo exactamente, la idea seria cambiar la config del epoll para que solo notifique 
+        eventos de error con el cliente hasta que el cgi haya acabado, y guardar la respuesta del cgi
+        en un buffer para asignarlo al body que devolvemos al cliente
+        */
+    
         if (utils::respond(client_socket->socket_fd, http_request, client_socket->server) == -1)
         {
             //NOTA: SE PODRIA AGRUPAR EL CONTENIDO DEL IF EN UNA FUNCION erase_fd_data()
             int socket_fd = client_socket->socket_fd;
-            epoll_ctl(epoll_fd, EPOLL_CTL_DEL, socket_fd, NULL);
+            epoll_ctl(server_context.epoll_fd, EPOLL_CTL_DEL, socket_fd, NULL);
             close(socket_fd);
             delete(client_socket);
             delete(fd_data);
-            map_fds.erase(socket_fd);
+            server_context.map_fds.erase(socket_fd);
         }
         else
             client_socket->readBuffer.clear();
