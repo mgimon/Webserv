@@ -1,57 +1,63 @@
 #include "../include/CGI.hpp"
 
-int addPipeWrite(int *pipe_write, int *pipe_read, pid_t pid, t_client_socket *client_socket, t_server_context &server_context)
+int addPipeWrite(int pipe_write_fd, int pipe_read_fd, pid_t pid, t_client_socket *client_socket, t_server_context &server_context)
 {
 	epoll_event ev_pipe_write;
-	s_CGI_pipe_write *s_pipe_write = new s_CGI_pipe_write(pipe_write[1], pipe_read[0], pid, client_socket);
+	s_CGI_pipe_write *s_pipe_write = new s_CGI_pipe_write(pipe_write_fd, pipe_read_fd, pid, client_socket);
 	t_fd_data *pipe_write_data = new t_fd_data(s_pipe_write, CGI_PIPE_WRITE);
 
 	ev_pipe_write.events = EPOLLOUT | EPOLLHUP | EPOLLERR;
 	ev_pipe_write.data.ptr = pipe_write_data;
-	if (epoll_ctl(server_context.epoll_fd, EPOLL_CTL_ADD, pipe_write[1], &ev_pipe_write) == -1)
+	if (epoll_ctl(server_context.epoll_fd, EPOLL_CTL_ADD, pipe_write_fd, &ev_pipe_write) == -1)
 	{
 		//Liberamos el read pipe
-		t_fd_data *pipe_read_data = server_context.map_fds.at(pipe_read[0]);
-		epoll_ctl(server_context.epoll_fd, EPOLL_CTL_DEL, pipe_read[0], NULL);
-		close(pipe_read[0]);
+		std::cerr << strerror(errno) << std::endl;
+
+		//Nota: se podria sacar el pipe_read_data con find para prevenir error garve si el insert fallo
+		//std::map<int, t_fd_data *>::iterator pipe_read_it = server_context.map_fds.find(pipe_read_fd);
+		t_fd_data *pipe_read_data = server_context.map_fds.at(pipe_read_fd);
+		epoll_ctl(server_context.epoll_fd, EPOLL_CTL_DEL, pipe_read_fd, NULL);
+		close(pipe_read_fd);
 		delete(pipe_read_data->data);
 		delete(pipe_read_data);
-		server_context.map_fds.erase(pipe_read[0]);
+		server_context.map_fds.erase(pipe_read_fd);
 		//Liberamos el write pipe
-		close(pipe_write[1]);
+		close(pipe_write_fd);
 		delete(s_pipe_write);
 		delete(pipe_write_data);
-		std::cerr << strerror(errno) << std::endl;
+		kill(pid, SIGKILL);
 		return (0); // Devolver un 500 error al cliente
 	}
-	server_context.map_fds.insert(std::make_pair(pipe_write[1], pipe_write_data));
-	server_context.map_pids.insert(std::make_pair(pid, pipe_write[1]));
+	server_context.map_fds.insert(std::make_pair(pipe_write_fd, pipe_write_data));
+	t_pid_context pid_context = {0, pipe_write_fd, pipe_read_fd, false};
+	server_context.map_pids.insert(std::make_pair(pid, pid_context));
 	return (1);
 }
 
-int addPipeRead(int *pipe_write, int *pipe_read, pid_t pid, t_client_socket *client_socket, t_server_context &server_context)
+int addPipeRead(int pipe_write_fd, int pipe_read_fd, pid_t pid, t_client_socket *client_socket, t_server_context &server_context)
 {
 	epoll_event ev_pipe_read;
 
-	s_CGI_pipe_read *s_pipe_read = new s_CGI_pipe_read(pipe_read[0], pid, client_socket);
+	s_CGI_pipe_read *s_pipe_read = new s_CGI_pipe_read(pipe_read_fd, pid, client_socket);
 	t_fd_data *pipe_read_data = new t_fd_data(s_pipe_read, CGI_PIPE_READ);
 	ev_pipe_read.events = EPOLLIN | EPOLLHUP | EPOLLERR;
 	ev_pipe_read.data.ptr = pipe_read_data;
-	if (epoll_ctl(server_context.epoll_fd, EPOLL_CTL_ADD, pipe_read[0], &ev_pipe_read) == -1)
+	if (epoll_ctl(server_context.epoll_fd, EPOLL_CTL_ADD, pipe_read_fd, &ev_pipe_read) == -1)
 	{
 		//Liberamos el read pipe y cerrramos el fd de write pipes
-		close(pipe_write[1]);
-		close(pipe_read[0]);
+		std::cerr << strerror(errno) << std::endl;
+		close(pipe_write_fd);
+		close(pipe_read_fd);
 		delete(s_pipe_read);
 		delete(pipe_read_data);
-		std::cerr << strerror(errno) << std::endl;
+		kill(pid, SIGKILL);
 		return (0); // Devolver un 500 error al cliente
 	}
-	server_context.map_fds.insert(std::make_pair(pipe_read[0], pipe_read_data));
+	server_context.map_fds.insert(std::make_pair(pipe_read_fd, pipe_read_data));
 	return(1);
 }
 
-void execCGI(int *pipe_write, int *pipe_read, char *cgi, char *nameScript, char *pathScript, char **env) // cgi = ruat del ejecutable cgi
+void execCGI(int *pipe_write, int *pipe_read, const std::string &cgi, const std::string &nameScript,  const std::string &pathScript, char **env) // cgi = ruat del ejecutable cgi
 {	
 	char *argv[3];
 
@@ -64,19 +70,19 @@ void execCGI(int *pipe_write, int *pipe_read, char *cgi, char *nameScript, char 
 	close(pipe_write[1]);
 	close(pipe_read[0]);
 
-	if (access(cgi, X_OK) == -1)
-		exit(EXIT_FAILURE);
-	if (chdir(pathScript) == -1)
-		exit(EXIT_FAILURE);
-	if (access(nameScript, R_OK | X_OK) == -1)
-		exit(EXIT_FAILURE);
+	if (access(cgi.c_str(), X_OK) == -1)
+		while(1);
+	if (chdir(pathScript.c_str()) == -1)
+		while(1);
+	if (access(nameScript.c_str(), R_OK | X_OK) == -1)
+		while(1);
 	//Creamos el array del comando
-	argv[0] = cgi;
-	argv[1] = nameScript;
+	argv[0] = const_cast<char*>(cgi.c_str());
+	argv[1] = const_cast<char*>(nameScript.c_str());
 	argv[2] = NULL;
 	//Ejecutamos
-	execve(cgi, argv, env);
-	exit(EXIT_FAILURE);
+	execve(argv[0], argv, env);
+	while(1);
 }
 
 void closePipe(int *pipe)
@@ -102,7 +108,7 @@ bool setNonBlockPipe(int fd)
 	return(true);
 }
 
-int startCGI(char *cgi, char *nameScript, char *pathScript, char **env, std::string request, t_server_context &server_context, t_client_socket *client_socket)
+int startCGI(const std::string &cgi, const std::string &nameScript, const std::string &pathScript, char **env, const std::string &request, t_server_context &server_context, t_client_socket *client_socket)
 {
 	int pipe_write[2]; // Padre escribe, hijo lee
 	int pipe_read[2]; // Padre lee, hijo escribe
@@ -116,8 +122,11 @@ int startCGI(char *cgi, char *nameScript, char *pathScript, char **env, std::str
 		return (0); // Devolver un 500 error al cliente
 	}
 	if (!setNonBlockPipe(pipe_write[1]) || !setNonBlockPipe(pipe_read[0]))
+	{
+		closePipe(pipe_write);
+		closePipe(pipe_read);
 		return (0); // Devolver un 500 error al cliente
-	
+	}
 	pid_t pid = fork();
 	if (pid == -1)
 	{
@@ -131,19 +140,20 @@ int startCGI(char *cgi, char *nameScript, char *pathScript, char **env, std::str
 	close(pipe_write[0]);
 	close(pipe_read[1]);
 	
-	if (addPipeRead(pipe_write, pipe_read, pid, client_socket, server_context) == 0)
+	if (addPipeRead(pipe_write[1], pipe_read[0], pid, client_socket, server_context) == 0)
 		return (0);
 
 	//Si el metodo es POST, usamos las dos pipes, si no cerramos la de lectura
 	if (request == "POST")
 	{
-		if (addPipeWrite(pipe_write, pipe_read, pid, client_socket, server_context) == 0)
+		if (addPipeWrite(pipe_write[1], pipe_read[0], pid, client_socket, server_context) == 0)
 			return (0);
 	}
 	else
 	{
 		close(pipe_write[1]);
-		server_context.map_pids.insert(std::make_pair(pid, pipe_read[0]));
+		t_pid_context pid_context = {0, -1, pipe_read[0], true};
+		server_context.map_pids.insert(std::make_pair(pid, pid_context));
 	}
 	return(1);
 }

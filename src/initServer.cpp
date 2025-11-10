@@ -158,7 +158,7 @@ void createClientSocket(t_listen_socket *listen_socket, int epoll_fd, std::map<i
 void initServer(std::vector<ServerConfig> &serverList)
 {
 	std::map<int, t_fd_data *> map_fds;
-	std::map<int, pid_t> map_pids;
+	std::map<pid_t, t_pid_context> map_pids;
 	int epoll_fd = epoll_create(1);
 	if (epoll_fd == -1)
 		throw std::runtime_error(strerror(errno));

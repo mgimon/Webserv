@@ -33,13 +33,13 @@ typedef struct s_CGI_pipe_read
 typedef struct s_CGI_pipe_write
 {
 	int fd;
-	int fd_pipe_read;
+	int pipe_read_fd;
 	pid_t pid;
 	t_client_socket *client_socket;
 
-	s_CGI_pipe_write(int fd_in, int fd_out, pid_t pid_CGI, t_client_socket *conexion_socket) : 
-        fd(fd_in),
-		fd_pipe_read(fd_out), 
+	s_CGI_pipe_write(int fd_write, int fd_read, pid_t pid_CGI, t_client_socket *conexion_socket) : 
+        fd(fd_write),
+		pipe_read_fd(fd_read), 
         pid(pid_CGI),
 		client_socket(conexion_socket) {}
 }	t_CGI_pipe;
@@ -78,11 +78,19 @@ typedef struct s_fd_data
         type(tp) {}
 }	t_fd_data;
 
+typedef struct s_pid_context 
+{
+	int time;
+	int pipe_write_fd;
+	int pipe_read_fd;
+	bool write_finished;
+}	t_pid_context;
+
 typedef struct s_server_context 
 {
     int epoll_fd;
     std::map<int, t_fd_data *> &map_fds;
-    std::map<int, pid_t> &map_pids;
+    std::map<pid_t, t_pid_context> &map_pids;
 }	t_server_context;
 
 void initServer(std::vector<ServerConfig> &serverList);

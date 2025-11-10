@@ -526,7 +526,7 @@ bool isCompleteRequest(const std::string& str)
     return (false);
 }
 
-void readFromSocket(t_fd_data *fd_data, t_socket *client_socket, int epoll_fd, std::map<int, t_fd_data *> &map_fds)
+void readFromSocket(t_fd_data *fd_data, t_client_socket *client_socket, int epoll_fd, std::map<int, t_fd_data *> &map_fds)
 {
     char buf[4096];
     ssize_t bytesRead = recv(client_socket->socket_fd, buf, sizeof(buf), 0);
@@ -659,7 +659,7 @@ int respond(int client_fd, const HttpRequest &http_request, ServerConfig &server
 
 void handleClientSocket(t_fd_data *fd_data, t_server_context &server_context, epoll_event (&events)[MAX_EVENTS], int i)
 {
-    t_socket *client_socket = static_cast<t_socket *>(fd_data->data);
+    t_client_socket *client_socket = static_cast<t_client_socket *>(fd_data->data);
     client_socket->server.print();
 
     if (events[i].events & (EPOLLHUP | EPOLLERR))

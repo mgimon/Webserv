@@ -19,11 +19,11 @@ void UtilsCC::closeServer(int epoll_fd, std::map<int, t_fd_data*> &map_fds)
 		t_fd_data *fd_data = it->second;
 
 		close(fd);
-		if (fd_data->type == LISTEN_SOCKET || fd_data->type == CLIENT_SOCKET)
-		{
-			delete(static_cast<t_socket*>(fd_data->data));
-			delete(fd_data);
-		}
+		if (fd_data->type == LISTEN_SOCKET)
+			delete(static_cast<t_listen_socket*>(fd_data->data));
+		else if(fd_data->type == CLIENT_SOCKET)
+			delete(static_cast<t_client_socket*>(fd_data->data));
+		delete(fd_data);
 		std::map<int, t_fd_data*>::iterator aux = it;
 		++it;
 		map_fds.erase(aux);
