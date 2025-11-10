@@ -170,7 +170,16 @@ void initServer(std::vector<ServerConfig> &serverList)
 	while(Signals::running)
 	{
 		//CHECK MAP_PIDS
-		int n_events = epoll_wait(epoll_fd, events, MAX_EVENTS, -1);
+		for (std::map<pid_t, t_pid_context>::iterator pids_it = map_pids.begin();
+			pids_it != map_pids.end(); ++pids_it)
+		{
+			if (pids_it->second.time >= 50)
+				cleanCGI();
+			else
+			pids_it->second.time++;
+		}
+		
+		int n_events = epoll_wait(epoll_fd, events, MAX_EVENTS, 100);
 		if (n_events == -1)
 		{
 			if (errno == EINTR)

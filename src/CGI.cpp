@@ -10,9 +10,8 @@ int addPipeWrite(int pipe_write_fd, int pipe_read_fd, pid_t pid, t_client_socket
 	ev_pipe_write.data.ptr = pipe_write_data;
 	if (epoll_ctl(server_context.epoll_fd, EPOLL_CTL_ADD, pipe_write_fd, &ev_pipe_write) == -1)
 	{
-		//Liberamos el read pipe
 		std::cerr << strerror(errno) << std::endl;
-
+		//Liberamos el read pipe
 		//Nota: se podria sacar el pipe_read_data con find para prevenir error garve si el insert fallo
 		//std::map<int, t_fd_data *>::iterator pipe_read_it = server_context.map_fds.find(pipe_read_fd);
 		t_fd_data *pipe_read_data = server_context.map_fds.at(pipe_read_fd);
@@ -25,7 +24,7 @@ int addPipeWrite(int pipe_write_fd, int pipe_read_fd, pid_t pid, t_client_socket
 		close(pipe_write_fd);
 		delete(s_pipe_write);
 		delete(pipe_write_data);
-		kill(pid, SIGKILL);
+		kill(pid, SIGKILL); // Cerramos el proceso hijo
 		return (0); // Devolver un 500 error al cliente
 	}
 	server_context.map_fds.insert(std::make_pair(pipe_write_fd, pipe_write_data));
@@ -44,13 +43,13 @@ int addPipeRead(int pipe_write_fd, int pipe_read_fd, pid_t pid, t_client_socket 
 	ev_pipe_read.data.ptr = pipe_read_data;
 	if (epoll_ctl(server_context.epoll_fd, EPOLL_CTL_ADD, pipe_read_fd, &ev_pipe_read) == -1)
 	{
-		//Liberamos el read pipe y cerrramos el fd de write pipes
 		std::cerr << strerror(errno) << std::endl;
+		//Liberamos el read pipe y cerrramos el fd de write pipes
 		close(pipe_write_fd);
 		close(pipe_read_fd);
 		delete(s_pipe_read);
 		delete(pipe_read_data);
-		kill(pid, SIGKILL);
+		kill(pid, SIGKILL); //Cerramos el proceso hijo
 		return (0); // Devolver un 500 error al cliente
 	}
 	server_context.map_fds.insert(std::make_pair(pipe_read_fd, pipe_read_data));
