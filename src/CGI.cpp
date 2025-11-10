@@ -1,6 +1,6 @@
 #include "../include/CGI.hpp"
 
-int addPipeWrite(int *pipe_write, int *pipe_read, pid_t pid, t_socket *client_socket, t_server_context &server_context)
+int addPipeWrite(int *pipe_write, int *pipe_read, pid_t pid, t_client_socket *client_socket, t_server_context &server_context)
 {
 	epoll_event ev_pipe_write;
 	s_CGI_pipe_write *s_pipe_write = new s_CGI_pipe_write(pipe_write[1], pipe_read[0], pid, client_socket);
@@ -29,7 +29,7 @@ int addPipeWrite(int *pipe_write, int *pipe_read, pid_t pid, t_socket *client_so
 	return (1);
 }
 
-int addPipeRead(int *pipe_write, int *pipe_read, pid_t pid, t_socket *client_socket, t_server_context &server_context)
+int addPipeRead(int *pipe_write, int *pipe_read, pid_t pid, t_client_socket *client_socket, t_server_context &server_context)
 {
 	epoll_event ev_pipe_read;
 
@@ -39,6 +39,7 @@ int addPipeRead(int *pipe_write, int *pipe_read, pid_t pid, t_socket *client_soc
 	ev_pipe_read.data.ptr = pipe_read_data;
 	if (epoll_ctl(server_context.epoll_fd, EPOLL_CTL_ADD, pipe_read[0], &ev_pipe_read) == -1)
 	{
+		//Liberamos el read pipe y cerrramos el fd de write pipes
 		close(pipe_write[1]);
 		close(pipe_read[0]);
 		delete(s_pipe_read);
@@ -101,7 +102,7 @@ bool setNonBlockPipe(int fd)
 	return(true);
 }
 
-int startCGI(char *cgi, char *nameScript, char *pathScript, char **env, std::string request, t_server_context &server_context, t_socket *client_socket)
+int startCGI(char *cgi, char *nameScript, char *pathScript, char **env, std::string request, t_server_context &server_context, t_client_socket *client_socket)
 {
 	int pipe_write[2]; // Padre escribe, hijo lee
 	int pipe_read[2]; // Padre lee, hijo escribe

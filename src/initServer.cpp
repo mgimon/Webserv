@@ -63,7 +63,7 @@ int createListenSocket(t_listen listen_conf)
 	return(socket_fd);
 }
 
-void addListenSocket(int epoll_fd, t_socket *listenSocket, std::map<int, t_fd_data*> &map_fds)
+void addListenSocket(int epoll_fd, t_listen_socket *listenSocket, std::map<int, t_fd_data*> &map_fds)
 {
 	epoll_event ev;
 
@@ -89,7 +89,7 @@ void loadListenSockets(std::vector<ServerConfig> &serverList, int epoll_fd, std:
 			try
 			{
 				int socket_fd = createListenSocket(*list_it);
-				t_socket *socket = new t_socket(socket_fd, *serv_it, "");
+				t_listen_socket *socket = new t_listen_socket(socket_fd, *serv_it);
 				addListenSocket(epoll_fd, socket, map_fds);
 			}
 			catch(const std::exception& e)
@@ -101,7 +101,7 @@ void loadListenSockets(std::vector<ServerConfig> &serverList, int epoll_fd, std:
 	}
 }
 
-void addClientSocket(int epoll_fd, t_socket *clientSocket, std::map<int, t_fd_data*> &map_fds)
+void addClientSocket(int epoll_fd, t_client_socket *clientSocket, std::map<int, t_fd_data*> &map_fds)
 {
 	epoll_event ev;
 
@@ -122,7 +122,7 @@ void addClientSocket(int epoll_fd, t_socket *clientSocket, std::map<int, t_fd_da
 		map_fds.insert(std::make_pair(clientSocket->socket_fd, fd_data));
 }
 
-void createClientSocket(t_socket *listen_socket, int epoll_fd, std::map<int, t_fd_data *> &map_fds)
+void createClientSocket(t_listen_socket *listen_socket, int epoll_fd, std::map<int, t_fd_data *> &map_fds)
 {
 	sockaddr client_addr;
 	socklen_t client_addr_size = sizeof(client_addr);
@@ -151,7 +151,7 @@ void createClientSocket(t_socket *listen_socket, int epoll_fd, std::map<int, t_f
 		return;
 	}
 
-	t_socket *client_socket = new t_socket(client_fd, listen_socket->server, "");
+	t_client_socket *client_socket = new t_client_socket(client_fd, listen_socket->server, "");
 	addClientSocket(epoll_fd, client_socket, map_fds);
 }
 
@@ -162,10 +162,10 @@ void initServer(std::vector<ServerConfig> &serverList)
 	int epoll_fd = epoll_create(1);
 	if (epoll_fd == -1)
 		throw std::runtime_error(strerror(errno));
-	t_server_context server_context = {epoll_fd, map_fds, map_pids};
  	loadListenSockets(serverList, epoll_fd, map_fds);
 	
 	epoll_event events[MAX_EVENTS];
+	t_server_context server_context = {epoll_fd, map_fds, map_pids};
 	signal(SIGINT, Signals::signalHandler);
 	while(Signals::running)
 	{
@@ -185,7 +185,7 @@ void initServer(std::vector<ServerConfig> &serverList)
 		{
 			t_fd_data *fd_data = static_cast<t_fd_data *>(events[i].data.ptr);
 			if (fd_data->type == LISTEN_SOCKET)
-				createClientSocket(static_cast<t_socket *>(fd_data->data), epoll_fd, map_fds);
+				createClientSocket(static_cast<t_listen_socket *>(fd_data->data), epoll_fd, map_fds);
 			else /*if (fd_data->type == CLIENT_SOCKET)*/
 				utils::handleClientSocket(fd_data, server_context, events, i);
 			//else if (fd_data->type == CGI_PIPE_IN)
