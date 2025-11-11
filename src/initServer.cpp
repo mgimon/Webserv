@@ -197,7 +197,7 @@ void initServer(std::vector<ServerConfig> &serverList)
 				continue;
 			else
 			{
-				UtilsCC::closeServer(epoll_fd, map_fds);
+				UtilsCC::closeServer(epoll_fd, map_fds, map_pids);
 				throw std::runtime_error(strerror(errno));
 			}
 		}
@@ -212,6 +212,6 @@ void initServer(std::vector<ServerConfig> &serverList)
 			//else if (fd_data->type == CGI_PIPE_OUT)
 		}
 	}
-	UtilsCC::closeServer(epoll_fd, map_fds);
+	UtilsCC::closeServer(epoll_fd, map_fds, map_pids);
 	std::cout << std::endl << "Server closed" << std::endl;
 }
