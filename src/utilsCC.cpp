@@ -29,6 +29,43 @@ void UtilsCC::closeServer(int epoll_fd, std::map<int, t_fd_data*> &map_fds)
 		map_fds.erase(aux);
 	}
 }
+
+void cleanCGI(int epoll_fd ,std::map<pid_t, t_pid_context>::iterator &pid_it, 
+			  std::map<int, t_fd_data *> &map_fds)
+{
+	//Liberamos write pipe
+	if (!pid_it->second.write_finished)
+	{
+		int pipe_write_fd = pid_it->second.pipe_write_fd;
+		std::map<int, t_fd_data *>::iterator fds_pipe_write_it = map_fds.find(pipe_write_fd);
+
+		epoll_ctl(epoll_fd, EPOLL_CTL_DEL, pipe_write_fd, NULL);
+        close(pipe_write_fd);
+        delete(fds_pipe_write_it->second->data);
+        delete(fds_pipe_write_it->second);
+        map_fds.erase(pipe_write_fd);
+	}
+
+	//Liberamos read pipe
+	int pipe_read_fd = pid_it->second.pipe_read_fd;
+	std::map<int, t_fd_data *>::iterator fds_pipe_read_it = map_fds.find(pipe_read_fd);
+
+	epoll_ctl(epoll_fd, EPOLL_CTL_DEL, pipe_read_fd, NULL);
+	close(pipe_read_fd);
+	delete(fds_pipe_read_it->second->data);
+	delete(fds_pipe_read_it->second);
+	map_fds.erase(pipe_read_fd);
+
+	//Liberamos client
+	/*int client_fd = pid_it->second.client_socket_fd;
+	std::map<int, t_fd_data *>::iterator fds_client_it = map_fds.find(client_fd);
+	epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, NULL);
+	close(client_fd);
+	delete(fds_client_it->second->data);
+	delete(fds_client_it->second);
+	map_fds.erase(client_fd);*/
+}
+
 /*void UtilsCC::closeServer(int epoll_fd, std::map<int, t_fd_data*> &map_fds, std::map<int, pid_t> &map_pids)
 {
 	close(epoll_fd);

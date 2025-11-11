@@ -83,6 +83,7 @@ typedef struct s_pid_context
 	int time;
 	int pipe_write_fd;
 	int pipe_read_fd;
+	int client_socket_fd;
 	bool write_finished;
 }	t_pid_context;
 

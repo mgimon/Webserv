@@ -118,7 +118,7 @@ void addClientSocket(int epoll_fd, t_client_socket *clientSocket, std::map<int, 
 		delete(fd_data);
 		std::cerr << strerror(errno) << std::endl;
 	}
-	else // Añadimos el socket al map de fds si no ha falaldo al mterlo en el epoll
+	else // Añadimos el socket al map de fds si no ha fallado al meterlo en el epoll
 		map_fds.insert(std::make_pair(clientSocket->socket_fd, fd_data));
 }
 
@@ -170,13 +170,24 @@ void initServer(std::vector<ServerConfig> &serverList)
 	while(Signals::running)
 	{
 		//CHECK MAP_PIDS
-		for (std::map<pid_t, t_pid_context>::iterator pids_it = map_pids.begin();
-			pids_it != map_pids.end(); ++pids_it)
+		std::map<pid_t, t_pid_context>::iterator pids_it = map_pids.begin();
+		while (pids_it != map_pids.end())
+
 		{
 			if (pids_it->second.time >= 50)
-				cleanCGI();
+			{
+				kill(pids_it->first, SIGKILL);
+				//Send error to client
+				UtilsCC::cleanCGI(epoll_fd, pids_it, map_fds);
+				std::map<pid_t, t_pid_context>::iterator aux_it = pids_it;
+				++pids_it;
+				map_pids.erase(aux_it);
+			}
 			else
-			pids_it->second.time++;
+			{
+				pids_it->second.time++;
+				++pids_it;
+			}
 		}
 		
 		int n_events = epoll_wait(epoll_fd, events, MAX_EVENTS, 100);

@@ -28,7 +28,7 @@ int addPipeWrite(int pipe_write_fd, int pipe_read_fd, pid_t pid, t_client_socket
 		return (0); // Devolver un 500 error al cliente
 	}
 	server_context.map_fds.insert(std::make_pair(pipe_write_fd, pipe_write_data));
-	t_pid_context pid_context = {0, pipe_write_fd, pipe_read_fd, false};
+	t_pid_context pid_context = {0, pipe_write_fd, pipe_read_fd, client_socket->socket_fd, false};
 	server_context.map_pids.insert(std::make_pair(pid, pid_context));
 	return (1);
 }
@@ -151,7 +151,7 @@ int startCGI(const std::string &cgi, const std::string &nameScript, const std::s
 	else
 	{
 		close(pipe_write[1]);
-		t_pid_context pid_context = {0, -1, pipe_read[0], true};
+		t_pid_context pid_context = {0, -1, pipe_read[0], client_socket->socket_fd, true};
 		server_context.map_pids.insert(std::make_pair(pid, pid_context));
 	}
 	return(1);
