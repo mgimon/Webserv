@@ -150,20 +150,31 @@ std::string getErrorPath(ServerConfig &serverOne, int errcode)
     return (errorpath);
 }
 
-int serveRedirect(const LocationConfig *requestLocation, int client_fd, HttpResponse &http_response)
+const LocationConfig *getRedirectLocationMatch(const HttpRequest &http_request, ServerConfig &serverOne, const LocationConfig *requestLocation)
 {
-    if (requestLocation)
+    std::vector<LocationConfig> Locations = serverOne.getLocations();
+    
+    for (std::vector<LocationConfig>::iterator it = Locations.begin(); it < Locations.end(); ++it)
     {
-        std::pair<int, std::string> redirect = requestLocation->getRedirect();
-        std::cout << YELLOW << "Redirect int: " << redirect.first << RESET << std::endl;
-        std::cout << YELLOW << "Redirect path: " << redirect.second << RESET << std::endl;
-        if (redirect.first != 0)
-        {
-                http_response.setRedirectResponse(redirect.first, redirect.second);
-                http_response.respondInClient(client_fd);
-                std::cout << YELLOW << "Redirect served!" << RESET << std::endl;
-                return (1);
-        }
+        if(http_request.getPath() == it->getPath() + "/")
+            return &(*it);
+    }
+    return (requestLocation);
+}
+
+int serveRedirect(const HttpRequest &http_request, ServerConfig &serverOne, const LocationConfig *requestLocation, int client_fd, HttpResponse &http_response)
+{
+    const LocationConfig *redirectLocationMatch = getRedirectLocationMatch(http_request, serverOne, requestLocation);
+    std::pair<int, std::string> redirect = redirectLocationMatch->getRedirect();
+    //std::cout << YELLOW << "Redirect int: " << requestLocation->getRedirect().first << RESET << std::endl;
+    //std::cout << YELLOW << "Redirect path: " << requestLocation->getRedirect().second << RESET << std::endl;
+    //std::cout << YELLOW << "Request location" << requestLocation->getPath() << RESET << std::endl;
+    if (redirect.first != 0)
+    {
+            http_response.setRedirectResponse(redirect.first, redirect.second);
+            http_response.respondInClient(client_fd);
+            std::cout << YELLOW << "Redirect served!" << RESET << std::endl;
+            return (1);
     }
     return (-1);
 }
@@ -228,6 +239,12 @@ int serveGet(const LocationConfig *requestLocation, int client_fd, const HttpReq
         std::cout << PINK << path << RESET << std::endl;
         std::string tempPath = path;
         trimPathSlash(tempPath);
+        if (!isMethodAllowed(requestLocation->getMethods(), "GET"))
+        {
+            http_response.setError(getErrorPath(serverOne, 405), 405, "Method Not Allowed");
+            http_response.respondInClient(client_fd);
+            return (1);
+        }
         if (isDirectory(tempPath) && !isRawLocationRequest(serverOne, path))
         {
             if (requestLocation->getAutoIndex() == false)
@@ -455,15 +472,16 @@ int servePost(const LocationConfig *requestLocation, int client_fd, const HttpRe
 
 int serveDelete(const LocationConfig *requestLocation, int client_fd, const HttpRequest &http_request, HttpResponse &http_response, ServerConfig &serverOne)
 {
-    if (!requestLocation || !isMethodAllowed(requestLocation->getMethods(), "DELETE"))
-    {
-        http_response.setError(getErrorPath(serverOne, 405), 405, "Method Not Allowed");
-        http_response.respondInClient(client_fd);
-        return (1);
-    }
     if (http_request.getPath().find("../") != std::string::npos)
     {
         http_response.setError(getErrorPath(serverOne, 403), 403, "Forbidden");
+        http_response.respondInClient(client_fd);
+        return (1);
+    }
+    std::cout << PINK << "hellooooooo path is " << http_request.getPath() << RESET << std::endl;
+    if (!requestLocation || !isMethodAllowed(requestLocation->getMethods(), "DELETE"))
+    {
+        http_response.setError(getErrorPath(serverOne, 405), 405, "Method Not Allowed");
         http_response.respondInClient(client_fd);
         return (1);
     }
@@ -661,7 +679,8 @@ int respond(int client_fd, const HttpRequest &http_request, ServerConfig &server
     const std::string &method = http_request.getMethod();
     const LocationConfig *requestLocation = locationMatchforRequest(http_request.getPath(), serverOne.getLocations());
 
-    if (serveRedirect(requestLocation, client_fd, http_response) == 1)
+    std::cout << YELLOW << "Request location is " << requestLocation->getPath() << RESET << std::endl;
+    if (requestLocation && serveRedirect(http_request, serverOne, requestLocation, client_fd, http_response) == 1)
         return (0);
     if (method == "GET")
         return (serveGet(requestLocation, client_fd, http_request, http_response, serverOne));

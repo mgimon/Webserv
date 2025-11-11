@@ -155,7 +155,12 @@ void HttpResponse::buildResponse(std::string path, ServerConfig &serverOne) {
     std::ifstream file(path.c_str());
     
     if (!file)
-        setError(utils::getErrorPath(serverOne, 404), 404, "Not Found");
+    {
+        if (errno == EACCES)
+            setError(utils::getErrorPath(serverOne, 403), 403, "Forbidden");
+        else
+            setError(utils::getErrorPath(serverOne, 404), 404, "Not Found");
+    }
     else
         set200(file);
 }
