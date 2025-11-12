@@ -171,7 +171,10 @@ int serveRedirect(const HttpRequest &http_request, ServerConfig &serverOne, cons
     //std::cout << YELLOW << "Request location" << requestLocation->getPath() << RESET << std::endl;
     if (redirect.first != 0)
     {
-            http_response.setRedirectResponse(redirect.first, redirect.second);
+            if (redirect.second.substr(0, 2) == "./")
+                http_response.setRedirectResponse(redirect.first, redirect.second.substr(1)); // quita el .
+            else
+                http_response.setRedirectResponse(redirect.first, redirect.second);
             http_response.respondInClient(client_fd);
             std::cout << YELLOW << "Redirect served!" << RESET << std::endl;
             return (1);
@@ -221,7 +224,8 @@ int serveGet(const LocationConfig *requestLocation, int client_fd, const HttpReq
             }
             else
             {
-                std::string autoindex_page = utils::generateAutoindex(serverOne.getDocumentRoot() + path);
+                std::cout << PINK << "Autoindex generado aqui: " + serverOne.getDocumentRoot() + path << RESET << std::endl;
+                std::string autoindex_page = utils::generateAutoindexRoot(serverOne.getDocumentRoot(), path);
                 http_response.setResponse(200, autoindex_page);
                 http_response.respondInClient(client_fd);
                 return (0);
@@ -258,7 +262,8 @@ int serveGet(const LocationConfig *requestLocation, int client_fd, const HttpReq
             }
             else
             {
-                std::string autoindex_page = generateAutoindex(path);
+                std::cout << PINK << "Autoindex generado aqui: " + path << RESET << std::endl;
+                std::string autoindex_page = generateAutoindexLocation(path + "/");
                 http_response.setResponse(200, autoindex_page);
                 http_response.respondInClient(client_fd);
                 return (0);
@@ -266,7 +271,7 @@ int serveGet(const LocationConfig *requestLocation, int client_fd, const HttpReq
         }
         if (isRawLocationRequest(serverOne, path) && requestLocation->getAutoIndex() == true)
         {
-            std::string autoindex_page = generateAutoindex(path);
+            std::string autoindex_page = generateAutoindexLocation(path);
             http_response.setResponse(200, autoindex_page);
             http_response.respondInClient(client_fd);
             return (0);
@@ -604,8 +609,9 @@ std::string makeRelative(std::string path)
     return (path);
 }
 
-std::string generateAutoindex(const std::string& dirPath)
+/*std::string generateAutoindexRoot(const std::string& Path, const std::string& directory)
 {
+    const std::string dirPath = Path + directory;
     DIR* dir = opendir(makeRelative(dirPath).c_str());
     if (!dir)
         throw std::runtime_error("Cannot open directory");
@@ -638,6 +644,82 @@ std::string generateAutoindex(const std::string& dirPath)
     html << "</ul></body></html>";
     closedir(dir);
     return (html.str());
+}*/
+
+std::string generateAutoindexRoot(const std::string& Path, const std::string& directory)
+{
+    const std::string dirPath = Path + directory;
+    DIR* dir = opendir(makeRelative(dirPath).c_str());
+    if (!dir)
+        throw std::runtime_error("Cannot open directory");
+
+    std::ostringstream html;
+    html << "<html><head><title>Autoindex</title>"
+         << "<link rel=\"stylesheet\" href=\"/styles.css\" />"
+         << "</head><body class=\"autoindex\">"
+         << "<h1>Autoindex</h1><ul>";
+
+    struct dirent* entry;
+    while ((entry = readdir(dir)) != NULL)
+    {
+        std::string name = entry->d_name;
+        if (name == "." || name == "..")
+            continue;
+
+        std::string fullPath = dirPath + "/" + name;
+        struct stat st;
+        if (stat(fullPath.c_str(), &st) == 0 && S_ISDIR(st.st_mode))
+            name += "/"; // marcar directorios
+
+        std::string href = directory;
+        if (!href.empty() && href[href.size() - 1] != '/')
+            href += "/";
+        href += name;
+
+        html << "<li><a href=\"" << href << "\">" << name << "</a></li>";
+    }
+
+    html << "</ul></body></html>";
+    closedir(dir);
+    return html.str();
+}
+
+std::string generateAutoindexLocation(const std::string& dirPath)
+{
+    DIR* dir = opendir(makeRelative(dirPath).c_str());
+    if (!dir)
+        throw std::runtime_error("Cannot open directory");
+
+    std::ostringstream html;
+    html << "<html><head><title>Autoindex</title>"
+         << "<link rel=\"stylesheet\" href=\"/styles.css\" />"
+         << "</head><body class=\"autoindex\">"
+         << "<h1>Autoindex</h1><ul>";
+
+    struct dirent* entry;
+    while ((entry = readdir(dir)) != NULL)
+    {
+        std::string name = entry->d_name;
+        if (name == "." || name == "..")
+            continue;
+
+        std::string fullPath = dirPath + "/" + name;
+        struct stat st;
+        if (stat(fullPath.c_str(), &st) == 0 && S_ISDIR(st.st_mode))
+            name += "/"; // marcar directorios
+
+        // Construir href con ruta completa compatible C++98
+        std::string href = dirPath;
+        if (!href.empty() && href[href.size() - 1] != '/')
+            href += "/";
+        href += name;
+
+        html << "<li><a href=\"" << href << "\">" << name << "</a></li>";
+    }
+
+    html << "</ul></body></html>";
+    closedir(dir);
+    return html.str();
 }
 
 std::string getRedirectMessage(int code)
