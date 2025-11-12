@@ -179,6 +179,7 @@ int serveRedirect(const HttpRequest &http_request, ServerConfig &serverOne, cons
     return (-1);
 }
 
+//respondGet expects a path as ./(...)
 int serveGet(const LocationConfig *requestLocation, int client_fd, const HttpRequest &http_request, HttpResponse &http_response, ServerConfig &serverOne)
 {
     if (!requestLocation)
@@ -195,6 +196,7 @@ int serveGet(const LocationConfig *requestLocation, int client_fd, const HttpReq
     // asking for raw root (serves first valid index from vector)
     if (isLocation(serverOne, path) == 0)
     {
+        std::cout << PINK << "!!!!!!!!!!!!Raw root!!!!!!!!!!!!" << RESET << std::endl;
         validatePathWithIndex(path, requestLocation, serverOne);
         if (isMethodAllowed(requestLocation->getMethods(), "GET"))
             return respondGet(serverOne, client_fd, path, http_request, http_response);
@@ -208,6 +210,7 @@ int serveGet(const LocationConfig *requestLocation, int client_fd, const HttpReq
     // inside of root
     else if (isLocation(serverOne, path) == -1)
     {
+        std::cout << PINK << "!!!!!!!!!!!!Inside root!!!!!!!!!!!!" << RESET << std::endl;
         if (isDirectory(serverOne.getDocumentRoot() + path))
         {
             if (requestLocation->getAutoIndex() == false)
@@ -236,7 +239,7 @@ int serveGet(const LocationConfig *requestLocation, int client_fd, const HttpReq
     // inside location
     else if (isLocation(serverOne, path) == 1)
     {
-        std::cout << PINK << path << RESET << std::endl;
+        std::cout << PINK << "!!!!!!!!!!!!Inside location!!!!!!!!!!!!" << RESET << std::endl;
         std::string tempPath = path;
         trimPathSlash(tempPath);
         if (!isMethodAllowed(requestLocation->getMethods(), "GET"))
@@ -274,8 +277,6 @@ int serveGet(const LocationConfig *requestLocation, int client_fd, const HttpReq
             http_response.respondInClient(client_fd);
             return (1);
         }
-        std::cout << PINK << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << RESET << std::endl;
-        std::cout << PINK << requestLocation->getRootOverride() + path << RESET << std::endl;
         if (isMethodAllowed(requestLocation->getMethods(), "GET"))
         {
             if (isRawLocationRequest(serverOne, path))
@@ -286,7 +287,10 @@ int serveGet(const LocationConfig *requestLocation, int client_fd, const HttpReq
                     return respondGet(serverOne, client_fd, requestLocation->getRootOverride() + "/" + getFirstValidFile(requestLocation->getLocationIndexFiles(), requestLocation->getRootOverride()), http_request, http_response);
             }
             else
-                return respondGet(serverOne, client_fd, requestLocation->getRootOverride() + "/" + path, http_request, http_response);
+            {
+                std::cout << PINK << "." + path << RESET << std::endl;
+                return respondGet(serverOne, client_fd, "." + path, http_request, http_response);
+            }
         }
         else
         {
