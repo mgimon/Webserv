@@ -37,10 +37,10 @@ namespace utils {
     std::string getErrorPath(ServerConfig &serverOne, int errcode);
     void hardcodeMultipleLocServer(ServerConfig &server);
     bool isDirectory(const std::string& path);
-    std::string generateAutoindex(const std::string& dirPath);
     std::string getRedirectMessage(int code);
     bool hasWXPermission(const std::string &path);
     std::string getDirectoryName(const std::string &path);
+    int checkConnectionClose(const HttpRequest &http_request, HttpResponse &http_response);
 }
 
 #endif

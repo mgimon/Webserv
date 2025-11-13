@@ -1,7 +1,7 @@
 #include "../include/HttpResponse.hpp"
 
 HttpResponse::HttpResponse()
-    : version_("HTTP/1.1"), status_code_(0), status_message_(), headers_(), body_(), content_type_() {}
+    : version_("HTTP/1.0"), status_code_(0), status_message_(), headers_(), body_(), content_type_() {}
 
 HttpResponse::HttpResponse(const HttpResponse& other)
     : version_(other.version_), status_code_(other.status_code_),
@@ -165,7 +165,7 @@ void HttpResponse::buildResponse(std::string path, ServerConfig &serverOne) {
         set200(file);
 }
 
-void HttpResponse::respondInClient(int client_fd)
+int HttpResponse::respondInClient(int client_fd)
 {
     std::ostringstream response;
     std::map<std::string, std::string> headers = this->getHeaders();
@@ -176,5 +176,7 @@ void HttpResponse::respondInClient(int client_fd)
         response << it->first << ": " << it->second << "\r\n";
     response << "\r\n" << this->getBody();
 
-    write(client_fd, response.str().c_str(), response.str().size());
+    if (write(client_fd, response.str().c_str(), response.str().size()) == -1)
+        return (std::cerr << RED << "Write failed writing in client fd" << RESET << std::endl, -1);
+    return (1);
 }

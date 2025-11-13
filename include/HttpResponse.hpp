@@ -60,7 +60,7 @@ class HttpResponse {
 
 		void buildResponse(std::string path, ServerConfig &serverOne);
 		void forceConnectionClose();
-		void respondInClient(int client_fd);
+		int	respondInClient(int client_fd);
 };
 
 /* 

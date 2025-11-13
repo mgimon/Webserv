@@ -171,64 +171,69 @@ int serveRedirect(const HttpRequest &http_request, ServerConfig &serverOne, cons
     //std::cout << YELLOW << "Request location" << requestLocation->getPath() << RESET << std::endl;
     if (redirect.first != 0)
     {
-            if (redirect.second.substr(0, 2) == "./")
-                http_response.setRedirectResponse(redirect.first, redirect.second.substr(1)); // quita el .
-            else
-                http_response.setRedirectResponse(redirect.first, redirect.second);
-            http_response.respondInClient(client_fd);
-            std::cout << YELLOW << "Redirect served!" << RESET << std::endl;
-            return (1);
+        if (redirect.second.substr(0, 2) == "./")
+            http_response.setRedirectResponse(redirect.first, redirect.second.substr(1)); // quita el .
+        else
+            http_response.setRedirectResponse(redirect.first, redirect.second);
+        std::cout << YELLOW << "Serving redirect!" << RESET << std::endl;
+        http_response.respondInClient(client_fd);
     }
     return (-1);
 }
 
 //respondGet expects a path as ./(...)
+//if keep_alive is -1 when returned, respond will flush the connection
+//keep_alive/close is set in response too, but this is not essential for http 1.0
+//respondeGet already handles update of Connection:close headers
 int serveGet(const LocationConfig *requestLocation, int client_fd, const HttpRequest &http_request, HttpResponse &http_response, ServerConfig &serverOne)
 {
+    int keep_alive = checkConnectionClose(http_request, http_response);
+
     if (!requestLocation)
     {
         http_response.setError(getErrorPath(serverOne, 404), 404, "Not Found");
-        http_response.respondInClient(client_fd);
-        return (1);
+        if (http_response.respondInClient(client_fd) == -1)
+            return (-1);
+        return (keep_alive);
     }
     std::string path = http_request.getPath();
-    //std::cout << CYAN << "Path " << path << " is location?: " << std::boolalpha << isLocation(serverOne, path) << RESET << std::endl;
-    //http_response.setResponse(200, "200 OK");
-    //http_response.respondInClient(client_fd);
 
     // asking for raw root (serves first valid index from vector)
     if (isLocation(serverOne, path) == 0)
     {
-        std::cout << PINK << "!!!!!!!!!!!!Raw root!!!!!!!!!!!!" << RESET << std::endl;
+        //std::cout << PINK << "!!!!!!!!!!!!Raw root!!!!!!!!!!!!" << RESET << std::endl;
         validatePathWithIndex(path, requestLocation, serverOne);
         if (isMethodAllowed(requestLocation->getMethods(), "GET"))
             return respondGet(serverOne, client_fd, path, http_request, http_response);
         else
         {
             http_response.setError(getErrorPath(serverOne, 405), 405, "Method Not Allowed");
-            http_response.respondInClient(client_fd);
-            return (1);
+            if (http_response.respondInClient(client_fd) == -1)
+                return (-1);
+            return (keep_alive);
         }
     }
     // inside of root
     else if (isLocation(serverOne, path) == -1)
     {
-        std::cout << PINK << "!!!!!!!!!!!!Inside root!!!!!!!!!!!!" << RESET << std::endl;
+        //std::cout << PINK << "!!!!!!!!!!!!Inside root!!!!!!!!!!!!" << RESET << std::endl;
         if (isDirectory(serverOne.getDocumentRoot() + path))
         {
             if (requestLocation->getAutoIndex() == false)
             {
                 http_response.setError(getErrorPath(serverOne, 403), 403, "Forbidden");
-                http_response.respondInClient(client_fd);
-                return (1);
+                if (http_response.respondInClient(client_fd) == -1)
+                    return (-1);
+                return (keep_alive);
             }
             else
             {
-                std::cout << PINK << "Autoindex generado aqui: " + serverOne.getDocumentRoot() + path << RESET << std::endl;
+                //std::cout << PINK << "Autoindex generado aqui: " + serverOne.getDocumentRoot() + path << RESET << std::endl;
                 std::string autoindex_page = utils::generateAutoindexRoot(serverOne.getDocumentRoot(), path);
                 http_response.setResponse(200, autoindex_page);
-                http_response.respondInClient(client_fd);
-                return (0);
+                if (http_response.respondInClient(client_fd) == -1)
+                    return (-1);
+                return (keep_alive);
             }
         }
         if (isMethodAllowed(requestLocation->getMethods(), "GET"))
@@ -236,51 +241,57 @@ int serveGet(const LocationConfig *requestLocation, int client_fd, const HttpReq
         else
         {
             http_response.setError(getErrorPath(serverOne, 405), 405, "Method Not Allowed");
-            http_response.respondInClient(client_fd);
-            return (1);
+            if (http_response.respondInClient(client_fd) == -1)
+                return (-1);
+            return (keep_alive);
         }
     }
     // inside location
     else if (isLocation(serverOne, path) == 1)
     {
-        std::cout << PINK << "!!!!!!!!!!!!Inside location!!!!!!!!!!!!" << RESET << std::endl;
+        //std::cout << PINK << "!!!!!!!!!!!!Inside location!!!!!!!!!!!!" << RESET << std::endl;
         std::string tempPath = path;
         trimPathSlash(tempPath);
         if (!isMethodAllowed(requestLocation->getMethods(), "GET"))
         {
             http_response.setError(getErrorPath(serverOne, 405), 405, "Method Not Allowed");
-            http_response.respondInClient(client_fd);
-            return (1);
+            if (http_response.respondInClient(client_fd) == -1)
+                return (-1);
+            return (keep_alive);
         }
         if (isDirectory(tempPath) && !isRawLocationRequest(serverOne, path))
         {
             if (requestLocation->getAutoIndex() == false)
             {
                 http_response.setError(getErrorPath(serverOne, 403), 403, "Forbidden");
-                http_response.respondInClient(client_fd);
-                return (1);
+                if (http_response.respondInClient(client_fd) == -1)
+                    return (-1);
+                return (keep_alive);
             }
             else
             {
-                std::cout << PINK << "Autoindex generado aqui: " + path << RESET << std::endl;
+                //std::cout << PINK << "Autoindex generado aqui: " + path << RESET << std::endl;
                 std::string autoindex_page = generateAutoindexLocation(path + "/");
                 http_response.setResponse(200, autoindex_page);
-                http_response.respondInClient(client_fd);
-                return (0);
+                if (http_response.respondInClient(client_fd) == -1)
+                    return (-1);
+                return (keep_alive);
             }
         }
         if (isRawLocationRequest(serverOne, path) && requestLocation->getAutoIndex() == true)
         {
             std::string autoindex_page = generateAutoindexLocation(path);
             http_response.setResponse(200, autoindex_page);
-            http_response.respondInClient(client_fd);
-            return (0);
+            if (http_response.respondInClient(client_fd) == -1)
+                return (-1);
+            return (keep_alive);
         }
         if (!requestLocation->getRootOverride().empty() && requestLocation->getLocationIndexFiles().empty())
         {
             http_response.setError(getErrorPath(serverOne, 404), 404, "Not Found");
-            http_response.respondInClient(client_fd);
-            return (1);
+            if (http_response.respondInClient(client_fd) == -1)
+                return (-1);
+            return (keep_alive);
         }
         if (isMethodAllowed(requestLocation->getMethods(), "GET"))
         {
@@ -293,18 +304,19 @@ int serveGet(const LocationConfig *requestLocation, int client_fd, const HttpReq
             }
             else
             {
-                std::cout << PINK << "." + path << RESET << std::endl;
+                //std::cout << PINK << "." + path << RESET << std::endl;
                 return respondGet(serverOne, client_fd, "." + path, http_request, http_response);
             }
         }
         else
         {
             http_response.setError(getErrorPath(serverOne, 405), 405, "Method Not Allowed");
-            http_response.respondInClient(client_fd);
-            return (1);
+            if (http_response.respondInClient(client_fd) == -1)
+                return (-1);
+            return (keep_alive);
         }
     }
-    return (0);
+    return (keep_alive);
     
 }
 
@@ -399,6 +411,7 @@ void trimWebKitFormBoundary(std::string &body)
 int serveUpload(const LocationConfig *requestLocation, int client_fd, const HttpRequest &http_request, HttpResponse &http_response, ServerConfig &serverOne)
 {
     (void)requestLocation;
+    int keep_alive = checkConnectionClose(http_request, http_response);
     int storageStatus = isStorageAllowed(serverOne);
     std::string uploadPath = "upload/" + getUploadFilename(http_request); // file.txt if no name
     if (storageStatus == 0 && (http_request.getPath() == "/upload" || http_request.getPath() == "/upload/"))
@@ -409,8 +422,9 @@ int serveUpload(const LocationConfig *requestLocation, int client_fd, const Http
         {
             std::cerr << RED << "open(): " << strerror(errno) <<  RESET << std::endl;
             http_response.setError(getErrorPath(serverOne, 500), 500, "Upload Unavailable");
-            http_response.respondInClient(client_fd);
-            return (1);
+            if (http_response.respondInClient(client_fd) == -1)
+                return (-1);
+            return (keep_alive);
         }
         else
         {
@@ -421,7 +435,7 @@ int serveUpload(const LocationConfig *requestLocation, int client_fd, const Http
                 close(fd);
                 http_response.setError(getErrorPath(serverOne, 500), 500, "Upload Unavailable");
                 http_response.respondInClient(client_fd);
-                return (1);
+                return (std::cerr << RED << "Write failed writing in client fd" << RESET << std::endl, -1);
             }
             close(fd);
         }
@@ -429,35 +443,41 @@ int serveUpload(const LocationConfig *requestLocation, int client_fd, const Http
         std::string body = getFormSuccessBody();
 
         std::string response =
-            "HTTP/1.1 201 Created\r\n"
+            "HTTP/1.0 201 Created\r\n"
             "Content-Type: text/html\r\n"
             "Content-Length: " + UtilsCC::to_stringCC(body.size()) + "\r\n"
             "Connection: close\r\n"
             "\r\n" +
             body;
 
-        send(client_fd, response.c_str(), response.size(), 0);
-        http_response.respondInClient(client_fd);
-        return (0);
+        if (send(client_fd, response.c_str(), response.size(), 0) == -1)
+            return (std::cerr << RED << "Send failed writing in client fd" << RESET << std::endl, -1);
+        //http_response.respondInClient(client_fd);
+        return (-1);
     }
     http_response.setError(getErrorPath(serverOne, storageStatus), storageStatus, "Upload Unavailable");
-    http_response.respondInClient(client_fd);
-    return (1);
+    if (http_response.respondInClient(client_fd) == -1)
+        return (-1);
+    return (keep_alive);
 }
 
 int servePost(const LocationConfig *requestLocation, int client_fd, const HttpRequest &http_request, HttpResponse &http_response, ServerConfig &serverOne)
 {
+    int keep_alive = checkConnectionClose(http_request, http_response);
+
     if (!requestLocation || !isMethodAllowed(requestLocation->getMethods(), "POST"))
     {
         http_response.setError(getErrorPath(serverOne, 405), 405, "Method Not Allowed");
-        http_response.respondInClient(client_fd);
-        return (1);
+        if (http_response.respondInClient(client_fd) == -1)
+            return (-1);
+        return (keep_alive);
     }
     if (http_request.exceedsMaxBodySize(serverOne.getClientMaxBodySize()))
     {
         http_response.setError(getErrorPath(serverOne, 413), 413, "Payload Too Large");
-        http_response.respondInClient(client_fd);
-        return (1);
+        if (http_response.respondInClient(client_fd) == -1)
+            return (-1);
+        return (keep_alive);
     }
     if (isUpload(http_request))
         return (serveUpload(requestLocation, client_fd, http_request, http_response, serverOne));
@@ -466,33 +486,38 @@ int servePost(const LocationConfig *requestLocation, int client_fd, const HttpRe
         std::string body = getFormSuccessBody();
 
         std::string response =
-            "HTTP/1.1 201 Created\r\n"
+            "HTTP/1.0 201 Created\r\n"
             "Content-Type: text/html\r\n"
             "Content-Length: " + UtilsCC::to_stringCC(body.size()) + "\r\n"
             "Connection: close\r\n"
             "\r\n" +
             body;
 
-        send(client_fd, response.c_str(), response.size(), 0);
-        http_response.respondInClient(client_fd);
-        return (0);
+        if (send(client_fd, response.c_str(), response.size(), 0) == -1)
+            return (std::cerr << RED << "Send failed writing in client fd" << RESET << std::endl, -1);
+        //http_response.respondInClient(client_fd);
+        return (-1);
     }
 }
 
 int serveDelete(const LocationConfig *requestLocation, int client_fd, const HttpRequest &http_request, HttpResponse &http_response, ServerConfig &serverOne)
 {
+    int keep_alive = checkConnectionClose(http_request, http_response);
+
     if (http_request.getPath().find("../") != std::string::npos)
     {
         http_response.setError(getErrorPath(serverOne, 403), 403, "Forbidden");
-        http_response.respondInClient(client_fd);
-        return (1);
+        if (http_response.respondInClient(client_fd) == -1)
+            return (-1);
+        return (keep_alive);
     }
     std::cout << PINK << "hellooooooo path is " << http_request.getPath() << RESET << std::endl;
     if (!requestLocation || !isMethodAllowed(requestLocation->getMethods(), "DELETE"))
     {
         http_response.setError(getErrorPath(serverOne, 405), 405, "Method Not Allowed");
-        http_response.respondInClient(client_fd);
-        return (1);
+        if (http_response.respondInClient(client_fd) == -1)
+            return (-1);
+        return (keep_alive);
     }
     std::string path = http_request.getPath();
     //utils::validatePathWithIndex(path, requestLocation, serverOne);
@@ -502,33 +527,34 @@ int serveDelete(const LocationConfig *requestLocation, int client_fd, const Http
     if (!file.good())
     {
         http_response.setError(getErrorPath(serverOne, 404), 404, "Not Found");
-        http_response.respondInClient(client_fd);
-        return (1);
+        if (http_response.respondInClient(client_fd) == -1)
+            return (-1);
+        return (keep_alive);
     }
     if (!utils::hasWXPermission(path) || utils::isDirectory(path))
     {
         http_response.setError(getErrorPath(serverOne, 403), 403, "Forbidden");
-        http_response.respondInClient(client_fd);
-        return (1);
+        if (http_response.respondInClient(client_fd) == -1)
+            return (-1);
+        return (keep_alive);
     }
     // Deletion
     if (std::remove(path.c_str()) == -1)
     {
         http_response.setError(getErrorPath(serverOne, 500), 500, "Internal Server Error");
-        http_response.respondInClient(client_fd);
-        return (1);
+        if (http_response.respondInClient(client_fd) == -1)
+            return (-1);
+        return (keep_alive);
     }
     http_response.setResponse(200, "OK");
-    http_response.respondInClient(client_fd);
-    return (0);
+    if (http_response.respondInClient(client_fd) == -1)
+        return (-1);
+    return (keep_alive);
 }
 
-int respondGet(ServerConfig &serverOne, int client_fd, std::string path, const HttpRequest &http_request, HttpResponse &http_response)
+int checkConnectionClose(const HttpRequest &http_request, HttpResponse &http_response)
 {
-    int keep_alive = 0;
-
-    http_response.buildResponse(path, serverOne);
-
+    int keep_alive = 1;
     std::map<std::string, std::string> headers = http_response.getHeaders();
     std::map<std::string, std::string>::const_iterator it = http_request.getHeaders().find("Connection");
     if (it != http_request.getHeaders().end() && it->second == "close")
@@ -540,7 +566,15 @@ int respondGet(ServerConfig &serverOne, int client_fd, std::string path, const H
         headers["Connection"] = "keep-alive";
     
     http_response.setHeaders(headers);
-    http_response.respondInClient(client_fd);
+    return (keep_alive);
+}
+
+int respondGet(ServerConfig &serverOne, int client_fd, std::string path, const HttpRequest &http_request, HttpResponse &http_response)
+{
+    http_response.buildResponse(path, serverOne);
+    int keep_alive = checkConnectionClose(http_request, http_response);
+    if (http_response.respondInClient(client_fd) == -1)
+        return (-1);
 
     return (keep_alive);
 }
@@ -762,6 +796,7 @@ bool hasWXPermission(const std::string &path)
 int respond(int client_fd, const HttpRequest &http_request, ServerConfig &serverOne)
 {
     HttpResponse    http_response;
+    int             keep_alive = checkConnectionClose(http_request, http_response);
     const std::string &method = http_request.getMethod();
     const LocationConfig *requestLocation = locationMatchforRequest(http_request.getPath(), serverOne.getLocations());
 
@@ -778,9 +813,20 @@ int respond(int client_fd, const HttpRequest &http_request, ServerConfig &server
     {
         std::cout << "Other method" << std::endl;
         http_response.setError(getErrorPath(serverOne, 405), 405, "Method Not Allowed");
-        http_response.respondInClient(client_fd);
-        return (1);
+        if (http_response.respondInClient(client_fd) == -1)
+            return (-1);
+        return (keep_alive);
     }
+}
+
+void removeConnection(t_socket *client_socket, t_fd_data *fd_data, int epoll_fd, std::map<int, t_fd_data *> &map_fds)
+{
+    int socket_fd = client_socket->socket_fd;
+    epoll_ctl(epoll_fd, EPOLL_CTL_DEL, socket_fd, NULL);
+    close(socket_fd);
+    delete(client_socket);
+    delete(fd_data);
+    map_fds.erase(socket_fd);
 }
 
 void handleClientSocket(t_fd_data *fd_data, int epoll_fd, std::map<int, t_fd_data *> &map_fds, epoll_event (&events)[MAX_EVENTS], int i)
@@ -790,32 +836,18 @@ void handleClientSocket(t_fd_data *fd_data, int epoll_fd, std::map<int, t_fd_dat
 
     if (events[i].events & (EPOLLHUP | EPOLLERR))
     {
-        //NOTA: SE PODRIA AGRUPAR EL CONTENIDO DEL IF EN UNA FUNCION erase_fd_data()
-        int socket_fd = client_socket->socket_fd;
-        epoll_ctl(epoll_fd, EPOLL_CTL_DEL, socket_fd, NULL);
-        close(socket_fd);
-        delete(client_socket);
-        delete(fd_data);
-        map_fds.erase(socket_fd);
+        removeConnection(client_socket, fd_data, epoll_fd, map_fds);
         return ;
     }
-    utils::readFromSocket(fd_data, client_socket, epoll_fd, map_fds);
-    if (utils::isCompleteRequest(client_socket->readBuffer))
+    readFromSocket(fd_data, client_socket, epoll_fd, map_fds);
+    if (isCompleteRequest(client_socket->readBuffer))
     {
         HttpRequest http_request(client_socket->readBuffer);
         //CHECK CGI Y LLAMARLO SI HACE FALTA
         http_request.printRequest();
 
-        if (utils::respond(client_socket->socket_fd, http_request, client_socket->server) == -1)
-        {
-            //NOTA: SE PODRIA AGRUPAR EL CONTENIDO DEL IF EN UNA FUNCION erase_fd_data()
-            int socket_fd = client_socket->socket_fd;
-            epoll_ctl(epoll_fd, EPOLL_CTL_DEL, socket_fd, NULL);
-            close(socket_fd);
-            delete(client_socket);
-            delete(fd_data);
-            map_fds.erase(socket_fd);
-        }
+        if (respond(client_socket->socket_fd, http_request, client_socket->server) == -1) // Client requests Connection:close, or Error
+            removeConnection(client_socket, fd_data, epoll_fd, map_fds);
         else
             client_socket->readBuffer.clear();
     }
