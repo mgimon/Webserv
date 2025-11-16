@@ -557,7 +557,7 @@ int deleteFile(int keep_alive, const std::string &path, int client_fd, HttpRespo
 {
     if (std::remove(path.c_str()) == -1)
     {
-        http_response.setError(getErrorPath(serverOne, 500), 500, "Internal Server Error");
+        http_response.setError(getErrorPath(serverOne, 403), 403, "Forbidden"); // 500?
         if (http_response.respondInClient(client_fd) == -1)
             return (-1);
         return (keep_alive);
