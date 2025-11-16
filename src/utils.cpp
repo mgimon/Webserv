@@ -500,6 +500,7 @@ int servePost(const LocationConfig *requestLocation, int client_fd, const HttpRe
     }
 }
 
+/*
 int serveDelete(const LocationConfig *requestLocation, int client_fd, const HttpRequest &http_request, HttpResponse &http_response, ServerConfig &serverOne)
 {
     int keep_alive = checkConnectionClose(http_request, http_response);
@@ -550,6 +551,99 @@ int serveDelete(const LocationConfig *requestLocation, int client_fd, const Http
     if (http_response.respondInClient(client_fd) == -1)
         return (-1);
     return (keep_alive);
+}*/
+
+int deleteFile(int keep_alive, const std::string &path, int client_fd, HttpResponse &http_response, ServerConfig &serverOne)
+{
+    if (std::remove(path.c_str()) == -1)
+    {
+        http_response.setError(getErrorPath(serverOne, 500), 500, "Internal Server Error");
+        if (http_response.respondInClient(client_fd) == -1)
+            return (-1);
+        return (keep_alive);
+    }
+    http_response.setResponse(200, "OK");
+    if (http_response.respondInClient(client_fd) == -1)
+        return (-1);
+    return (keep_alive);
+}
+
+int serveDelete(const LocationConfig *requestLocation, int client_fd, const HttpRequest &http_request, HttpResponse &http_response, ServerConfig &serverOne)
+{
+    int keep_alive = checkConnectionClose(http_request, http_response);
+
+    if (!requestLocation)
+    {
+        http_response.setError(getErrorPath(serverOne, 404), 404, "Not Found");
+        if (http_response.respondInClient(client_fd) == -1)
+            return (-1);
+        return (keep_alive);
+    }
+    std::string path = http_request.getPath();
+
+    // asking for raw root (serves first valid index from vector)
+    if (isLocation(serverOne, path) == 0)
+    {
+        //std::cout << PINK << "!!!!!!!!!!!!Raw root!!!!!!!!!!!!" << RESET << std::endl;
+        http_response.setError(getErrorPath(serverOne, 403), 403, "Forbidden");
+        if (http_response.respondInClient(client_fd) == -1)
+            return (-1);
+        return (keep_alive);
+    }
+    // inside of root
+    else if (isLocation(serverOne, path) == -1)
+    {
+        //std::cout << PINK << "!!!!!!!!!!!!Inside root!!!!!!!!!!!!" << RESET << std::endl;
+        if (isDirectory(serverOne.getDocumentRoot() + path))
+        {
+            http_response.setError(getErrorPath(serverOne, 403), 403, "Forbidden");
+            if (http_response.respondInClient(client_fd) == -1)
+                return (-1);
+            return (keep_alive);
+        }
+        if (isMethodAllowed(requestLocation->getMethods(), "DELETE"))
+            return deleteFile(keep_alive, serverOne.getDocumentRoot() + path, client_fd, http_response, serverOne); // return respondGet(serverOne, client_fd, serverOne.getDocumentRoot() + path, http_request, http_response);
+        else
+        {
+            http_response.setError(getErrorPath(serverOne, 405), 405, "Method Not Allowed");
+            if (http_response.respondInClient(client_fd) == -1)
+                return (-1);
+            return (keep_alive);
+        }
+    }
+    // inside location
+    else if (isLocation(serverOne, path) == 1)
+    {
+        //std::cout << PINK << "!!!!!!!!!!!!Inside location!!!!!!!!!!!!" << RESET << std::endl;
+        std::string tempPath = path;
+        trimPathSlash(tempPath);
+        if (!isMethodAllowed(requestLocation->getMethods(), "DELETE"))
+        {
+            http_response.setError(getErrorPath(serverOne, 405), 405, "Method Not Allowed");
+            if (http_response.respondInClient(client_fd) == -1)
+                return (-1);
+            return (keep_alive);
+        }
+        if (isRawLocationRequest(serverOne, path) || isDirectory(tempPath))
+        {
+            http_response.setError(getErrorPath(serverOne, 403), 403, "Forbidden");
+            if (http_response.respondInClient(client_fd) == -1)
+                return (-1);
+            return (keep_alive);
+        }
+        if (!requestLocation->getRootOverride().empty() && requestLocation->getLocationIndexFiles().empty())
+        {
+            http_response.setError(getErrorPath(serverOne, 404), 404, "Not Found");
+            if (http_response.respondInClient(client_fd) == -1)
+                return (-1);
+            return (keep_alive);
+        }
+
+        std::cout << PINK << "." + path << RESET << std::endl;
+        return deleteFile(keep_alive, "." + path, client_fd, http_response, serverOne);
+    }
+    return (keep_alive);
+    
 }
 
 int checkConnectionClose(const HttpRequest &http_request, HttpResponse &http_response)
@@ -643,43 +737,6 @@ std::string makeRelative(std::string path)
     return (path);
 }
 
-/*std::string generateAutoindexRoot(const std::string& Path, const std::string& directory)
-{
-    const std::string dirPath = Path + directory;
-    DIR* dir = opendir(makeRelative(dirPath).c_str());
-    if (!dir)
-        throw std::runtime_error("Cannot open directory");
-
-    std::ostringstream html;
-    html << "<html><head><title>Autoindex</title>"
-            "<link rel=\"stylesheet\" href=\"/styles.css\" />"
-            "</head>"
-         << "<body class=\"autoindex\">"
-         << "<h1>Autoindex</h1><ul>";
-
-
-    struct dirent* entry;
-    while ((entry = readdir(dir)) != NULL)
-    {
-        std::string name = entry->d_name;
-        if (name == "." || name == "..")
-            continue;
-
-        std::string fullPath = dirPath + "/" + name;
-        struct stat st;
-        if (stat(fullPath.c_str(), &st) == 0 && S_ISDIR(st.st_mode))
-            name += "/"; // marcar directorios
-
-        // link vacio, el hiperlink construye la url en el navegador
-        html << "<li><a href=\"";
-        html << name << "\">" << name << "</a></li>";
-    }
-
-    html << "</ul></body></html>";
-    closedir(dir);
-    return (html.str());
-}*/
-
 std::string generateAutoindexRoot(const std::string& Path, const std::string& directory)
 {
     const std::string dirPath = Path + directory;
@@ -742,7 +799,6 @@ std::string generateAutoindexLocation(const std::string& dirPath)
         if (stat(fullPath.c_str(), &st) == 0 && S_ISDIR(st.st_mode))
             name += "/"; // marcar directorios
 
-        // Construir href con ruta completa compatible C++98
         std::string href = dirPath;
         if (!href.empty() && href[href.size() - 1] != '/')
             href += "/";
