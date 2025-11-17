@@ -170,9 +170,8 @@ void initServer(std::vector<ServerConfig> &serverList)
 	while(Signals::running)
 	{
 		//CHECK MAP_PIDS
-		std::map<pid_t, t_pid_context>::iterator pids_it = map_pids.begin();
+		/*std::map<pid_t, t_pid_context>::iterator pids_it = map_pids.begin();
 		while (pids_it != map_pids.end())
-
 		{
 			if (pids_it->second.time >= 50)
 			{
@@ -188,7 +187,7 @@ void initServer(std::vector<ServerConfig> &serverList)
 				pids_it->second.time++;
 				++pids_it;
 			}
-		}
+		}*/
 		
 		int n_events = epoll_wait(epoll_fd, events, MAX_EVENTS, 100);
 		if (n_events == -1)
@@ -206,12 +205,12 @@ void initServer(std::vector<ServerConfig> &serverList)
 			t_fd_data *fd_data = static_cast<t_fd_data *>(events[i].data.ptr);
 			if (fd_data->type == LISTEN_SOCKET)
 				createClientSocket(static_cast<t_listen_socket *>(fd_data->data), epoll_fd, map_fds);
-			else /*if (fd_data->type == CLIENT_SOCKET)*/
+			else/*if (fd_data->type == CLIENT_SOCKET)*/
 				utils::handleClientSocket(fd_data, server_context, events, i);
 			//else if (fd_data->type == CGI_PIPE_IN)
 			//else if (fd_data->type == CGI_PIPE_OUT)
 		}
 	}
 	UtilsCC::closeServer(epoll_fd, map_fds, map_pids);
-	std::cout << std::endl << "Server closed" << std::endl;
+	std::cout << RED << std::endl << "Server closed" << RESET << std::endl;
 }

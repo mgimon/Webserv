@@ -875,7 +875,7 @@ int respond(int client_fd, const HttpRequest &http_request, ServerConfig &server
     }
 }
 
-void removeConnection(t_socket *client_socket, t_fd_data *fd_data, int epoll_fd, std::map<int, t_fd_data *> &map_fds)
+void removeConnection(t_client_socket *client_socket, t_fd_data *fd_data, int epoll_fd, std::map<int, t_fd_data *> &map_fds)
 {
     int socket_fd = client_socket->socket_fd;
     epoll_ctl(epoll_fd, EPOLL_CTL_DEL, socket_fd, NULL);
@@ -892,12 +892,11 @@ void handleClientSocket(t_fd_data *fd_data, t_server_context &server_context, ep
 
     if (events[i].events & (EPOLLHUP | EPOLLERR))
     {
-        removeConnection(client_socket, fd_data, epoll_fd, map_fds);
+        removeConnection(client_socket, fd_data, server_context.epoll_fd, server_context.map_fds);
         return ;
     }
-    if (!isCompleteRequest(client_socket->readBuffer))
-        readFromSocket(fd_data, client_socket, epoll_fd, map_fds);
-    else
+    readFromSocket(fd_data, client_socket, server_context.epoll_fd, server_context.map_fds);
+    if (isCompleteRequest(client_socket->readBuffer))
     {
         HttpRequest http_request(client_socket->readBuffer);
         http_request.printRequest();
@@ -910,7 +909,7 @@ void handleClientSocket(t_fd_data *fd_data, t_server_context &server_context, ep
         */
 
         if (respond(client_socket->socket_fd, http_request, client_socket->server) == -1) // Client requests Connection:close, or Error
-            removeConnection(client_socket, fd_data, epoll_fd, map_fds);
+            removeConnection(client_socket, fd_data, server_context.epoll_fd, server_context.map_fds);
         else
             client_socket->readBuffer.clear();
     }
