@@ -15,7 +15,7 @@ addrinfo *getAddrinfoList(t_listen listen)
 	hints.ai_socktype = SOCK_STREAM; // Stream socket (usa TCP como protocolo) 
 	hints.ai_flags = AI_PASSIVE; // Para usar todas las interfaces del pc (solo se aplica si pasamos NULL como primer parametro a getaddrinfo)
 
-	if (listen.host == "0.0.0.0")
+	if (listen.host == "")
 		rcode = getaddrinfo(NULL, UtilsCC::to_stringCC(listen.port).c_str(), &hints, &addrinfo_list);
 	else
 		rcode = getaddrinfo(listen.host.c_str(), UtilsCC::to_stringCC(listen.port).c_str(), &hints, &addrinfo_list);
