@@ -15,7 +15,7 @@ addrinfo *getAddrinfoList(t_listen listen)
 	hints.ai_socktype = SOCK_STREAM; // Stream socket (usa TCP como protocolo) 
 	hints.ai_flags = AI_PASSIVE; // Para usar todas las interfaces del pc (solo se aplica si pasamos NULL como primer parametro a getaddrinfo)
 
-	if (listen.host == "0.0.0.0")
+	if (listen.host == "")
 		rcode = getaddrinfo(NULL, UtilsCC::to_stringCC(listen.port).c_str(), &hints, &addrinfo_list);
 	else
 		rcode = getaddrinfo(listen.host.c_str(), UtilsCC::to_stringCC(listen.port).c_str(), &hints, &addrinfo_list);
@@ -63,7 +63,7 @@ int createListenSocket(t_listen listen_conf)
 	return(socket_fd);
 }
 
-void addListenSocket(int epoll_fd, t_socket *listenSocket, std::map<int, t_fd_data*> &map_fds)
+void addListenSocket(int epoll_fd, t_listen_socket *listenSocket, std::map<int, t_fd_data*> &map_fds)
 {
 	epoll_event ev;
 
@@ -89,7 +89,7 @@ void loadListenSockets(std::vector<ServerConfig> &serverList, int epoll_fd, std:
 			try
 			{
 				int socket_fd = createListenSocket(*list_it);
-				t_socket *socket = new t_socket(socket_fd, *serv_it, "");
+				t_listen_socket *socket = new t_listen_socket(socket_fd, *serv_it);
 				addListenSocket(epoll_fd, socket, map_fds);
 			}
 			catch(const std::exception& e)
@@ -101,14 +101,14 @@ void loadListenSockets(std::vector<ServerConfig> &serverList, int epoll_fd, std:
 	}
 }
 
-void addClientSocket(int epoll_fd, t_socket *clientSocket, std::map<int, t_fd_data*> &map_fds)
+void addClientSocket(int epoll_fd, t_client_socket *clientSocket, std::map<int, t_fd_data*> &map_fds)
 {
 	epoll_event ev;
 
 	t_fd_data *fd_data = new t_fd_data(clientSocket, CLIENT_SOCKET);
 
 	// Añadimos el socket al epoll
-	ev.events = EPOLLIN;
+	ev.events = EPOLLIN | EPOLLHUP | EPOLLERR;
 	ev.data.ptr = fd_data;
 	//Si no se añadido al epoll, lo sacamos del map y liberamos la memoria que acabamos de assignar con new
 	if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, clientSocket->socket_fd, &ev) == -1)
@@ -116,13 +116,13 @@ void addClientSocket(int epoll_fd, t_socket *clientSocket, std::map<int, t_fd_da
 		close(clientSocket->socket_fd);
 		delete(clientSocket);
 		delete(fd_data);
-		std::cout << strerror(errno) << std::endl;
+		std::cerr << strerror(errno) << std::endl;
 	}
-	else // Añadimos el socket al map de fds si no ha falaldo al mterlo en el epoll
+	else // Añadimos el socket al map de fds si no ha fallado al meterlo en el epoll
 		map_fds.insert(std::make_pair(clientSocket->socket_fd, fd_data));
 }
 
-void createClientSocket(t_socket *listen_socket, int epoll_fd, std::map<int, t_fd_data *> &map_fds)
+void createClientSocket(t_listen_socket *listen_socket, int epoll_fd, std::map<int, t_fd_data *> &map_fds)
 {
 	sockaddr client_addr;
 	socklen_t client_addr_size = sizeof(client_addr);
@@ -151,48 +151,67 @@ void createClientSocket(t_socket *listen_socket, int epoll_fd, std::map<int, t_f
 		return;
 	}
 
-	t_socket *client_socket = new t_socket(client_fd, listen_socket->server, "");
+	t_client_socket *client_socket = new t_client_socket(client_fd, listen_socket->server, "");
 	addClientSocket(epoll_fd, client_socket, map_fds);
 }
 
 void initServer(std::vector<ServerConfig> &serverList)
 {
 	std::map<int, t_fd_data *> map_fds;
-	std::map<int, pid_t> map_pids;
+	std::map<pid_t, t_pid_context> map_pids;
 	int epoll_fd = epoll_create(1);
 	if (epoll_fd == -1)
 		throw std::runtime_error(strerror(errno));
  	loadListenSockets(serverList, epoll_fd, map_fds);
 	
 	epoll_event events[MAX_EVENTS];
+	t_server_context server_context = {epoll_fd, map_fds, map_pids};
 	signal(SIGINT, Signals::signalHandler);
 	while(Signals::running)
 	{
 		//CHECK MAP_PIDS
-		int n_events = epoll_wait(epoll_fd, events, MAX_EVENTS, -1);
+		std::map<pid_t, t_pid_context>::iterator pids_it = map_pids.begin();
+		while (pids_it != map_pids.end())
+
+		{
+			if (pids_it->second.time >= 50)
+			{
+				kill(pids_it->first, SIGKILL);
+				//Send error to client
+				UtilsCC::cleanCGI(epoll_fd, pids_it, map_fds);
+				std::map<pid_t, t_pid_context>::iterator aux_it = pids_it;
+				++pids_it;
+				map_pids.erase(aux_it);
+			}
+			else
+			{
+				pids_it->second.time++;
+				++pids_it;
+			}
+		}
+		
+		int n_events = epoll_wait(epoll_fd, events, MAX_EVENTS, 100);
 		if (n_events == -1)
 		{
 			if (errno == EINTR)
 				continue;
 			else
 			{
-				UtilsCC::closeServer(epoll_fd, map_fds);
+				UtilsCC::closeServer(epoll_fd, map_fds, map_pids);
 				throw std::runtime_error(strerror(errno));
 			}
 		}
 		for (int i = 0; i < n_events; i++)
 		{
 			t_fd_data *fd_data = static_cast<t_fd_data *>(events[i].data.ptr);
-			//socket->server.print();
 			if (fd_data->type == LISTEN_SOCKET)
-				//NOTA: QUIZAS ES MEJOR HACER EL CAST EN UNA LINEA APARTE O DENTRO DE LA FUNCION POR CLARIDAD
-				createClientSocket(static_cast<t_socket *>(fd_data->data), epoll_fd, map_fds);
+				createClientSocket(static_cast<t_listen_socket *>(fd_data->data), epoll_fd, map_fds);
 			else /*if (fd_data->type == CLIENT_SOCKET)*/
-				utils::handleClientSocket(fd_data, epoll_fd, map_fds, events, i);
+				utils::handleClientSocket(fd_data, server_context, events, i);
 			//else if (fd_data->type == CGI_PIPE_IN)
 			//else if (fd_data->type == CGI_PIPE_OUT)
 		}
 	}
-	UtilsCC::closeServer(epoll_fd, map_fds);
+	UtilsCC::closeServer(epoll_fd, map_fds, map_pids);
 	std::cout << std::endl << "Server closed" << std::endl;
 }

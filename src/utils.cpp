@@ -702,7 +702,7 @@ bool isCompleteRequest(const std::string& str)
     return (false);
 }
 
-void readFromSocket(t_fd_data *fd_data, t_socket *client_socket, int epoll_fd, std::map<int, t_fd_data *> &map_fds)
+void readFromSocket(t_fd_data *fd_data, t_client_socket *client_socket, int epoll_fd, std::map<int, t_fd_data *> &map_fds)
 {
     char buf[4096];
     ssize_t bytesRead = recv(client_socket->socket_fd, buf, sizeof(buf), 0);
@@ -885,9 +885,9 @@ void removeConnection(t_socket *client_socket, t_fd_data *fd_data, int epoll_fd,
     map_fds.erase(socket_fd);
 }
 
-void handleClientSocket(t_fd_data *fd_data, int epoll_fd, std::map<int, t_fd_data *> &map_fds, epoll_event (&events)[MAX_EVENTS], int i)
+void handleClientSocket(t_fd_data *fd_data, t_server_context &server_context, epoll_event (&events)[MAX_EVENTS], int i)
 {
-    t_socket *client_socket = static_cast<t_socket *>(fd_data->data);
+    t_client_socket *client_socket = static_cast<t_client_socket *>(fd_data->data);
     client_socket->server.print();
 
     if (events[i].events & (EPOLLHUP | EPOLLERR))
@@ -895,98 +895,25 @@ void handleClientSocket(t_fd_data *fd_data, int epoll_fd, std::map<int, t_fd_dat
         removeConnection(client_socket, fd_data, epoll_fd, map_fds);
         return ;
     }
-    readFromSocket(fd_data, client_socket, epoll_fd, map_fds);
-    if (isCompleteRequest(client_socket->readBuffer))
+    if (!isCompleteRequest(client_socket->readBuffer))
+        readFromSocket(fd_data, client_socket, epoll_fd, map_fds);
+    else
     {
         HttpRequest http_request(client_socket->readBuffer);
-        //CHECK CGI Y LLAMARLO SI HACE FALTA
         http_request.printRequest();
+        //CHECK CGI Y LLAMARLO SI HACE FALTA
+
+        /*NOTA: Hay que hacer que no se entre en response hasta que el processo del cgi este acabdo,
+        no se como hacerlo exactamente, la idea seria cambiar la config del epoll para que solo notifique 
+        eventos de error con el cliente hasta que el cgi haya acabado, y guardar la respuesta del cgi
+        en un buffer para asignarlo al body que devolvemos al cliente
+        */
 
         if (respond(client_socket->socket_fd, http_request, client_socket->server) == -1) // Client requests Connection:close, or Error
             removeConnection(client_socket, fd_data, epoll_fd, map_fds);
         else
             client_socket->readBuffer.clear();
     }
-}
-
-void hardcodeMultipleLocServer(ServerConfig &server)
-{
-    //server.setHost("0.0.0.0");
-    //server.setPort(8080);
-
-    t_listen listenOne;
-    listenOne.host = "0.0.0.0";
-    listenOne.port = 8080;
-    listenOne.backlog = 128;
-
-    server.addListen(listenOne);
-    server.setDocumentRoot("/var/www/html");
-    server.setDefaultFile("index.html");
-
-    // Location "/"
-    LocationConfig loc_root;
-    loc_root.setPath("/");
-    std::vector<std::string> root_methods;
-    root_methods.push_back("GET");
-    loc_root.setMethods(root_methods);
-    loc_root.setAutoIndex(true);
-
-    // Location "/images/"
-    LocationConfig loc_images;
-    loc_images.setPath("/images/");
-    std::vector<std::string> images_methods;
-    images_methods.push_back("GET");
-    loc_images.setMethods(images_methods);
-    loc_images.setAutoIndex(true);
-
-    // Location "/old_location/"
-    LocationConfig loc_old;
-    loc_old.setPath("/old_location/");
-    std::vector<std::string> old_methods;
-    old_methods.push_back("GET");
-    old_methods.push_back("POST");
-    loc_old.setMethods(old_methods);
-    loc_old.setAutoIndex(true);
-    loc_old.setRedirect(std::pair<int, std::string>(307, "/new_location/"));
-
-    // Location "/new_location/"
-    LocationConfig loc_new;
-    loc_new.setPath("/new_location/");
-    loc_new.setRootOverride("/new_location");
-    std::vector<std::string> new_methods;
-    new_methods.push_back("GET");
-    new_methods.push_back("POST");
-    loc_new.setMethods(new_methods);
-    loc_new.setAutoIndex(true);
-
-    // Location "/upload/"
-    LocationConfig loc_upload;
-    loc_upload.setPath("/upload/");
-    std::vector<std::string> upload_methods;
-    upload_methods.push_back("POST");
-    loc_upload.setMethods(upload_methods);
-    loc_upload.setAutoIndex(true);
-
-    // Location "/form_result/"
-    LocationConfig loc_form;
-    loc_form.setPath("/form_result/");
-    loc_form.setRootOverride("/form_result");
-    std::vector<std::string> form_methods;
-    form_methods.push_back("POST");
-    form_methods.push_back("GET");
-    loc_form.setMethods(form_methods);
-    loc_form.setAutoIndex(true);
-
-    // Add locations to server object
-    std::vector<LocationConfig> locations;
-    locations.push_back(loc_root);
-    locations.push_back(loc_images);
-    locations.push_back(loc_upload);
-    locations.push_back(loc_form);
-    locations.push_back(loc_old);
-    locations.push_back(loc_new);
-    server.setLocations(locations);
-
 }
 
 std::string normalizePathForMatch(const std::string &path) {
