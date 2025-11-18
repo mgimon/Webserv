@@ -306,6 +306,37 @@ void ConfigParser::parseDirective(const std::vector<std::string>& tokens,
             throw std::runtime_error("redirect can only be used inside a location block at line " + ss.str());
         }
     }
+    else if (tokens[0] == "cgi") {
+        if (tokens.size() != 3) {
+            std::stringstream ss;
+            ss << line_number_;
+            throw std::runtime_error("cgi requires exactly three arguments: the extension and the path to the Python executable at line " + ss.str());
+        }
+
+        std::string ext = tokens[1];
+        std::string executable = tokens[2];
+        
+        if (ext != ".py") {
+            std::stringstream ss;
+            ss << line_number_;
+            throw std::runtime_error("Unsupported CGI extension at line " + ss.str() + ": " + ext);
+        }
+        // Validar que el ejecutable exista y sea ejecutable
+        struct stat info;
+        if (stat(executable.c_str(), &info) != 0 || !(info.st_mode & S_IXUSR)) {
+            std::stringstream ss;
+            ss << line_number_;
+            throw std::runtime_error("Invalid Python executable at line " + ss.str() + ": " + executable);
+        }
+
+        if (location) {
+            location->setPythonCGIExecutable(executable); // Guardar la ruta del ejecutable
+        } else {
+            std::stringstream ss;
+            ss << line_number_;
+            throw std::runtime_error("cgi can only be used inside a location block at line " + ss.str());
+        }
+    }
     else {
     std::stringstream ss;
     ss << line_number_;

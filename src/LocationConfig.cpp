@@ -58,3 +58,10 @@ const std::vector<std::string>& LocationConfig::getLocationIndexFiles() const {
 void  LocationConfig::setLocationIndexFiles(const std::vector<std::string>&index_files) {
 	index_files_ = index_files; 
 }
+
+void LocationConfig::setPythonCGIExecutable(const std::string& executable) {
+	exec_cgi_ = executable;
+}
+std::string LocationConfig::getPythonCGIExecutable() const {
+	return exec_cgi_;
+}
