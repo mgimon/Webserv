@@ -1,4 +1,6 @@
 #include "../include/utils.hpp"
+#include "../include/CGI.hpp"
+#include <unistd.h>
 
 namespace utils {
 
@@ -900,7 +902,49 @@ void handleClientSocket(t_fd_data *fd_data, t_server_context &server_context, ep
     {
         HttpRequest http_request(client_socket->readBuffer);
         http_request.printRequest();
-        //CHECK CGI Y LLAMARLO SI HACE FALTA
+        // CHECK CGI: si la location tiene un mapping para la extensión, lanzamos el CGI
+        const std::string req_path = http_request.getPath();
+        const LocationConfig *requestLocation = locationMatchforRequest(req_path, client_socket->server.getLocations());
+        if (requestLocation) {
+            // extraer filename y extension
+            size_t last_slash = req_path.find_last_of('/');
+            std::string filename = (last_slash == std::string::npos) ? req_path : req_path.substr(last_slash + 1);
+            if (!filename.empty()) {
+                size_t dot = filename.rfind('.');
+                if (dot != std::string::npos) {
+                    std::string ext = filename.substr(dot); // incluye '.'
+                    std::string cgi_exec = requestLocation->getCgiForExtension(ext);
+                    if (!cgi_exec.empty()) {
+                        // construir path absoluto al script (root [+] request path)
+                        std::string root = client_socket->server.getDocumentRoot();
+                        if (!requestLocation->getRootOverride().empty())
+                            root = requestLocation->getRootOverride();
+                        std::string fullpath = root;
+                        if (!fullpath.empty() && fullpath[fullpath.size() - 1] != '/')
+                            fullpath += '/';
+                        if (!req_path.empty() && req_path[0] == '/')
+                            fullpath += req_path.substr(1);
+                        else
+                            fullpath += req_path;
+                        size_t fs_last_slash = fullpath.find_last_of('/');
+                        std::string script_dir = ".";
+                        std::string script_name = filename;
+                        if (fs_last_slash != std::string::npos) {
+                            script_dir = fullpath.substr(0, fs_last_slash);
+                            script_name = fullpath.substr(fs_last_slash + 1);
+                        }
+                        extern char **environ;
+                        int started = startCGI(cgi_exec, script_name, script_dir, environ, http_request.getMethod(), server_context, client_socket);
+                        if (started == 1) {
+                            // CGI started asynchronously; do not proceed with normal response handling
+                            client_socket->readBuffer.clear();
+                            return;
+                        }
+                        // if startCGI failed, fall through to normal response (will likely return 500)
+                    }
+                }
+            }
+        }
 
         /*NOTA: Hay que hacer que no se entre en response hasta que el processo del cgi este acabdo,
         no se como hacerlo exactamente, la idea seria cambiar la config del epoll para que solo notifique 

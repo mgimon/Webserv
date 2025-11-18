@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cctype>
 #include <sys/stat.h>
+#include <unistd.h>
 
 // Constructor y destructor
 ConfigParser::ConfigParser() : line_number_(0) {}
@@ -304,6 +305,34 @@ void ConfigParser::parseDirective(const std::vector<std::string>& tokens,
             std::stringstream ss;
             ss << line_number_;
             throw std::runtime_error("redirect can only be used inside a location block at line " + ss.str());
+        }
+    }
+    else if (tokens[0] == "cgi") {
+        // Syntax: cgi <extension> <executable>
+        if (!location) {
+            std::stringstream ss;
+            ss << line_number_;
+            throw std::runtime_error("cgi can only be used inside a location block at line " + ss.str());
+        }
+        if (tokens.size() < 3) {
+            std::stringstream ss;
+            ss << line_number_;
+            throw std::runtime_error("cgi requires at least one <extension> <executable> pair at line " + ss.str());
+        }
+        if ((tokens.size() - 1) % 2 != 0) {
+            std::stringstream ss;
+            ss << line_number_;
+            throw std::runtime_error("cgi directive has an incomplete extension/executable pair at line " + ss.str());
+        }
+        for (size_t i = 1; i + 1 < tokens.size(); i += 2) {
+            std::string ext = tokens[i];
+            std::string exe = tokens[i + 1];
+            if (ext != ".py") {
+                std::stringstream ss;
+                ss << line_number_;
+                throw std::runtime_error("Only .py CGI extension is accepted at line " + ss.str() + ": " + ext);
+            }
+            location->setCgi(ext, exe);
         }
     }
     else {

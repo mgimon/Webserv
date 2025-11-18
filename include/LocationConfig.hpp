@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <iostream>
+#include <map>
 
 class LocationConfig {
 	private:
@@ -13,6 +14,7 @@ class LocationConfig {
 		bool autoindex_;                       // true = on, false = off
 		std::string root_override_;            // Si un location tiene su propio root
 		std::vector<std::string>	index_files_;
+		std::map<std::string, std::string> cgi_map_; // extension -> executable path
 
 	public:
 		LocationConfig();
@@ -30,12 +32,15 @@ class LocationConfig {
 		bool getAutoIndex() const;
 		std::string getRootOverride() const;
 		std::vector<std::string> getIndexs() const;
+		const std::map<std::string, std::string>& getCgiMap() const;
+		std::string getCgiForExtension(const std::string &ext) const;
 
 		void setRedirect(const std::pair<int, std::string> &redirect);
 		void setPath(const std::string& path);
 		void setMethods(const std::vector<std::string>& methods);
 		void setAutoIndex(bool autoindex);
 		void setRootOverride(const std::string& root_override);
+		void setCgi(const std::string &ext, const std::string &executable);
 
 		void printLocation() const;
 		const std::vector<std::string>& getLocationIndexFiles() const;

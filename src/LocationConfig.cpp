@@ -1,4 +1,5 @@
 #include "../include/LocationConfig.hpp"
+#include <map>
 
 /** CANONICAL **/
 LocationConfig::LocationConfig() : redirect_(0, ""), path_("/"), autoindex_(false), root_override_("") {}
@@ -12,6 +13,7 @@ LocationConfig& LocationConfig::operator=(const LocationConfig& other) {
 		autoindex_ = other.autoindex_;
 		root_override_ = other.root_override_;
 		index_files_ = other.index_files_;
+		cgi_map_ = other.cgi_map_;
 	}
 	return *this;
 }
@@ -57,4 +59,16 @@ const std::vector<std::string>& LocationConfig::getLocationIndexFiles() const {
 }
 void  LocationConfig::setLocationIndexFiles(const std::vector<std::string>&index_files) {
 	index_files_ = index_files; 
+}
+
+const std::map<std::string, std::string>& LocationConfig::getCgiMap() const { return cgi_map_; }
+
+std::string LocationConfig::getCgiForExtension(const std::string &ext) const {
+	std::map<std::string, std::string>::const_iterator it = cgi_map_.find(ext);
+	if (it != cgi_map_.end()) return it->second;
+	return std::string();
+}
+
+void LocationConfig::setCgi(const std::string &ext, const std::string &executable) {
+	cgi_map_[ext] = executable;
 }
