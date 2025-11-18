@@ -885,6 +885,50 @@ void removeConnection(t_client_socket *client_socket, t_fd_data *fd_data, int ep
     map_fds.erase(socket_fd);
 }
 
+bool ends_with_py(const std::string& str)
+{
+    const char* suffix = ".py";
+    size_t suffix_len = 3;
+
+    if (str.size() < suffix_len)
+        return false;
+    for (size_t i = 0; i < suffix_len; ++i)
+    {
+        if (str[str.size() - suffix_len + i] != suffix[i])
+            return (false);
+    }
+    return (true);
+}
+
+std::string getCgiScriptNameFromPath(const std::string &path)
+{
+    size_t pyPos = path.find(".py");
+    if (pyPos == std::string::npos)
+        return "";
+
+    size_t slashPos = path.rfind('/', pyPos);
+    if (slashPos == std::string::npos)
+        slashPos = 0;
+    else
+        slashPos++;
+
+    std::string scriptName = path.substr(slashPos, pyPos - slashPos + 3);
+
+    return (scriptName);
+}
+
+std::string getCgiScriptPathFromPath(const std::string &path)
+{
+    size_t pyPos = path.find(".py");
+    size_t endPos = (pyPos != std::string::npos) ? pyPos : path.size();
+
+    size_t slashPos = path.rfind('/', endPos); // ultima '/' antes del final del nombre del script
+    if (slashPos == std::string::npos)
+        return "";
+
+    return path.substr(0, slashPos);
+}
+
 void handleClientSocket(t_fd_data *fd_data, t_server_context &server_context, epoll_event (&events)[MAX_EVENTS], int i)
 {
     t_client_socket *client_socket = static_cast<t_client_socket *>(fd_data->data);
@@ -907,6 +951,27 @@ void handleClientSocket(t_fd_data *fd_data, t_server_context &server_context, ep
         eventos de error con el cliente hasta que el cgi haya acabado, y guardar la respuesta del cgi
         en un buffer para asignarlo al body que devolvemos al cliente
         */
+
+        /*
+        REQUEST_METHOD      GET                                 Método HTTP usado por el cliente
+        QUERY_STRING	    nombre=Juan&edad=30	                Todo lo que viene después del ? en la URL
+        CONTENT_LENGTH	    123	                                Longitud del cuerpo (si POST)
+        CONTENT_TYPE	    application/x-www-form-urlencoded	Tipo de datos enviados
+        SCRIPT_NAME	        /cgi-bin/test.py	                Nombre del script CGI
+        SCRIPT_FILENAME	    /var/www/cgi-bin/test.py	        Ruta completa en el servidor
+        REMOTE_ADDR	        192.168.1.2	                        IP del cliente
+        SERVER_NAME	        mi-servidor.com	                    Nombre del servidor
+        */
+
+
+        //if (http_request.getPath().find(".py") != std::string::npos && locationMatchforRequest(http_request.getPath(), client_socket->server.getLocations())->isCgi() == true)
+        //{
+            const LocationConfig *requestLocation = locationMatchforRequest(http_request.getPath(), client_socket->server.getLocations());
+            char *cgiInterpretDir = "usr/bin";
+            const char *scriptName = getCgiScriptNameFromPath(http_request.getPath()).c_str();
+            const char *scriptPath = getCgiScriptPathFromPath(http_request.getPath()).c_str();
+            CGI::startCGI(cgiInterpretDir, const_cast<char*>(scriptName), const_cast<char*>(scriptPath), char **env, const std::string &request, t_server_context &server_context, t_client_socket *client_socket);
+        //}
 
         if (respond(client_socket->socket_fd, http_request, client_socket->server) == -1) // Client requests Connection:close, or Error
             removeConnection(client_socket, fd_data, server_context.epoll_fd, server_context.map_fds);

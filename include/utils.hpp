@@ -20,6 +20,7 @@
 #include "ServerConfig.hpp"
 #include "initServer.hpp"
 #include "utilsCC.hpp"
+#include "CGI.hpp"
 
 namespace utils {
 
