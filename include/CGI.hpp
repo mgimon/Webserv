@@ -5,9 +5,9 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-#include "../include/initServer.hpp"
-#include "../include/ServerConfig.hpp"
-
+#include "ServerConfig.hpp"
+#include "initServer.hpp"
+#include "utilsCC.hpp"
 
 
 namespace CGI

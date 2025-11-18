@@ -47,12 +47,17 @@ typedef struct s_CGI_pipe_write
 {
 	int fd;
 	int pipe_read_fd;
+	std::string request_body;
+	int content_length;
 	pid_t pid;
 	t_client_socket *client_socket;
 
-	s_CGI_pipe_write(int fd_write, int fd_read, pid_t pid_CGI, t_client_socket *conexion_socket) : 
+	s_CGI_pipe_write(int fd_write, int fd_read, std::string body, int body_length, pid_t pid_CGI,
+	 				t_client_socket *conexion_socket) : 
         fd(fd_write),
 		pipe_read_fd(fd_read), 
+		request_body(body),
+		content_length(body_length),
         pid(pid_CGI),
 		client_socket(conexion_socket) {}
 }	t_CGI_pipe_write;

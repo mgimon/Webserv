@@ -9,7 +9,25 @@ std::string UtilsCC::to_stringCC(int num)
 	return(ss.str());
 }
 
-// Version para cerrar si hay error mientras creamos listen scokets 
+bool UtilsCC::addFlagsFd(int fd)
+{
+	int status_flags = fcntl(fd, F_GETFL); // Obtenemos las status flags del fd con F_GETFL
+	if (status_flags == -1)
+		return (false);
+	status_flags |= O_NONBLOCK; // Le añadimos O_NONBLOCK para hacerlo non-blocking 
+	if (fcntl(fd, F_SETFL, status_flags) == -1) // Usamos F_SETFL para assignarle las nuevas flags
+		return (false);
+
+	int descriptor_flags = fcntl(fd, F_GETFD);  // Obtenemos las description flags del fd con F_GETFD
+	if (descriptor_flags == -1)
+		return (false);
+	descriptor_flags |= FD_CLOEXEC; // Le añadimos FD_CLOEXEC para que, si se crea una copia en un child process, se cierre al hacer un execv()
+	if (fcntl(fd, F_SETFD, descriptor_flags) == -1) // Usamos F_SETFD para assignarle las nuevas flags
+		return (false);
+	return(true);
+}
+
+// Version para cerrar si hay error mientras creamos listen sockets 
 void UtilsCC::closeServer(int epoll_fd, std::map<int, t_fd_data*> &map_fds)
 {
 	close(epoll_fd);
@@ -30,8 +48,9 @@ void UtilsCC::closeServer(int epoll_fd, std::map<int, t_fd_data*> &map_fds)
 		map_fds.erase(aux);
 	}
 }
+
 // Version para cerrar el server por signal
-/*void cleanCGI(std::map<pid_t, t_pid_context>::iterator &pid_it, 
+void cleanCGI(std::map<pid_t, t_pid_context>::iterator &pid_it, 
 			  std::map<int, t_fd_data *> &map_fds)
 {
 	if (!pid_it->second.write_finished)
@@ -40,8 +59,8 @@ void UtilsCC::closeServer(int epoll_fd, std::map<int, t_fd_data*> &map_fds)
 		std::map<int, t_fd_data *>::iterator fds_pipe_write_it = map_fds.find(pipe_write_fd);
 
         close(pipe_write_fd);
-        delete(fds_pipe_write_it->second->data);
-        delete(fds_pipe_write_it->second);
+        delete(static_cast<t_CGI_pipe_write*>(fds_pipe_write_it->second->data));
+        delete(static_cast<t_fd_data*>(fds_pipe_write_it->second));
         map_fds.erase(fds_pipe_write_it);
 	}
 
@@ -50,20 +69,21 @@ void UtilsCC::closeServer(int epoll_fd, std::map<int, t_fd_data*> &map_fds)
 	std::map<int, t_fd_data *>::iterator fds_pipe_read_it = map_fds.find(pipe_read_fd);
 
 	close(pipe_read_fd);
-	delete(fds_pipe_read_it->second->data);
-	delete(fds_pipe_read_it->second);
+	delete(static_cast<t_CGI_pipe_read*>(fds_pipe_read_it->second->data));
+	delete(static_cast<t_fd_data*>(fds_pipe_read_it->second));
 	map_fds.erase(fds_pipe_read_it);
-}*/
+}
 
-//Version para cerrar por signal
-void UtilsCC::closeServer(int epoll_fd, std::map<int, t_fd_data*> &map_fds, std::map<pid_t, t_pid_context> &map_pids)
+// Version para cerrar por signal
+void UtilsCC::closeServer(int epoll_fd, std::map<int, t_fd_data*> &map_fds,
+							std::map<pid_t, t_pid_context> &map_pids)
 {
 	close(epoll_fd);
 	std::map<pid_t, t_pid_context>::iterator pids_it = map_pids.begin();
 	while (pids_it != map_pids.end())
 	{
 		kill(pids_it->first, SIGKILL);
-		//cleanCGI(pids_it, map_fds);
+		cleanCGI(pids_it, map_fds);
 		std::map<pid_t, t_pid_context>::iterator aux_it = pids_it;
 		++pids_it;
 		map_pids.erase(aux_it);
@@ -87,7 +107,7 @@ void UtilsCC::closeServer(int epoll_fd, std::map<int, t_fd_data*> &map_fds, std:
 }
 
 // Version para limpiar la data cuando hay timeOut
-/*void UtilsCC::cleanCGI(int epoll_fd ,std::map<pid_t, t_pid_context>::iterator &pid_it, 
+void UtilsCC::cleanCGI(int epoll_fd ,std::map<pid_t, t_pid_context>::iterator &pid_it, 
 			  std::map<int, t_fd_data *> &map_fds)
 {
 	// Liberamos write pipe
@@ -98,8 +118,8 @@ void UtilsCC::closeServer(int epoll_fd, std::map<int, t_fd_data*> &map_fds, std:
 
 		epoll_ctl(epoll_fd, EPOLL_CTL_DEL, pipe_write_fd, NULL);
         close(pipe_write_fd);
-        delete(fds_pipe_write_it->second->data);
-        delete(fds_pipe_write_it->second);
+        delete(static_cast<t_CGI_pipe_write*>(fds_pipe_write_it->second->data));
+        delete(static_cast<t_fd_data*>(fds_pipe_write_it->second));
         map_fds.erase(fds_pipe_write_it);
 	}
 
@@ -109,17 +129,17 @@ void UtilsCC::closeServer(int epoll_fd, std::map<int, t_fd_data*> &map_fds, std:
 
 	epoll_ctl(epoll_fd, EPOLL_CTL_DEL, pipe_read_fd, NULL);
 	close(pipe_read_fd);
-	delete(fds_pipe_read_it->second->data);
-	delete(fds_pipe_read_it->second);
+	delete(static_cast<t_CGI_pipe_read*>(fds_pipe_read_it->second->data));
+	delete(static_cast<t_fd_data*>(fds_pipe_read_it->second));
 	map_fds.erase(fds_pipe_read_it);
+	//Liberamos client
+	/*int client_fd = pid_it->second.client_socket_fd;
+	std::map<int, t_fd_data *>::iterator fds_client_it = map_fds.find(client_fd);
+	epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, NULL);
+	close(client_fd);
+	delete(fds_client_it->second->data);
+	delete(fds_client_it->second);
+	map_fds.erase(client_fd);*/
 
-}*/
+}
 
-//Liberamos client
-/*int client_fd = pid_it->second.client_socket_fd;
-std::map<int, t_fd_data *>::iterator fds_client_it = map_fds.find(client_fd);
-epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, NULL);
-close(client_fd);
-delete(fds_client_it->second->data);
-delete(fds_client_it->second);
-map_fds.erase(client_fd);*/

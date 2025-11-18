@@ -40,16 +40,33 @@ int createListenSocket(t_listen listen_conf)
 			close(socket_fd);
 			continue;
 		}
-		int flags = fcntl(socket_fd, F_GETFL); // Obtenemos las flags del fd con F_GETFL
-		if (flags == -1){
-			close(socket_fd);
-			continue;
-		}	
-		flags |= O_NONBLOCK | FD_CLOEXEC; // Le añadimos O_NONBLOCK para hacerlo non-blocking y FD_CLOEXEC para que, si se crea una copia en un child process, se cierre al hacer un execv()
-		if (fcntl(socket_fd, F_SETFL, flags) == -1){ // Usamos F_SETFL para assignarle las nuevas flags
+		if (!UtilsCC::addFlagsFd(socket_fd))
+		{
 			close(socket_fd);
 			continue;
 		}
+		//CODIGO SUBSTITUIDO POR addFlagsFd()
+		/*int status_flags = fcntl(socket_fd, F_GETFL); // Obtenemos las status flags del fd con F_GETFL
+		if (status_flags == -1){
+			close(socket_fd);
+			continue;
+		}	
+		status_flags |= O_NONBLOCK; // Le añadimos O_NONBLOCK para hacerlo non-blocking 
+		if (fcntl(socket_fd, F_SETFL, status_flags) == -1){ // Usamos F_SETFL para assignarle las nuevas flags
+			close(socket_fd);
+			continue;
+		}
+		int descriptor_flags = fcntl(socket_fd, F_GETFD);  // Obtenemos las description flags del fd con F_GETFD
+		if (descriptor_flags == -1){
+			close(socket_fd);
+			continue;
+		}	
+		descriptor_flags |= FD_CLOEXEC; // Le añadimos FD_CLOEXEC para que, si se crea una copia en un child process, se cierre al hacer un execv()
+		if (fcntl(socket_fd, F_SETFD, descriptor_flags) == -1){ // Usamos F_SETFD para assignarle las nuevas flags
+			close(socket_fd);
+			continue;
+		}*/
+
 		if (bind(socket_fd, node->ai_addr, node->ai_addrlen) == 0) // Assignamos la configuracion al socket
 			break;
 		close(socket_fd);
@@ -129,7 +146,7 @@ void createClientSocket(t_listen_socket *listen_socket, int epoll_fd, std::map<i
 
 	listen_socket->server.print();
 	int client_fd = accept(listen_socket->socket_fd, &client_addr, &client_addr_size); // Al aceptar la conexion, se crea socket especifico para este cliente
-	//if (client_fd == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) Error muy especifico para un level triggered epoll (nivel que falle un write), no se si ponerlo, ademas cero que no esta permitido por el saubject
+	//if (client_fd == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) Error muy especifico para un level triggered epoll (nivel que falle un write), no se si ponerlo,
 	//	return;
 	if (client_fd == -1)
 	{
@@ -137,15 +154,7 @@ void createClientSocket(t_listen_socket *listen_socket, int epoll_fd, std::map<i
 		throw std::runtime_error(strerror(errno));
 	}
 
-	// Hacemos el socket non-blocking
-	int flags = fcntl(client_fd, F_GETFL); 
-	if (flags == -1)
-	{
-		close(client_fd);
-		return;
-	}	
-	flags |= O_NONBLOCK | FD_CLOEXEC; 
-	if (fcntl(client_fd, F_SETFL, flags) == -1)
+	if (!UtilsCC::addFlagsFd(client_fd))
 	{
 		close(client_fd);
 		return;
@@ -159,6 +168,7 @@ void initServer(std::vector<ServerConfig> &serverList)
 {
 	std::map<int, t_fd_data *> map_fds;
 	std::map<pid_t, t_pid_context> map_pids;
+	//NOTA: HACER EPOLL_FD FD_CLOEXEC
 	int epoll_fd = epoll_create(1);
 	if (epoll_fd == -1)
 		throw std::runtime_error(strerror(errno));
@@ -170,13 +180,13 @@ void initServer(std::vector<ServerConfig> &serverList)
 	while(Signals::running)
 	{
 		//CHECK MAP_PIDS
-		/*std::map<pid_t, t_pid_context>::iterator pids_it = map_pids.begin();
+		std::map<pid_t, t_pid_context>::iterator pids_it = map_pids.begin();
 		while (pids_it != map_pids.end())
 		{
 			if (pids_it->second.time >= 50)
 			{
 				kill(pids_it->first, SIGKILL);
-				//Send error to client
+				//NOTA: Send error to client
 				UtilsCC::cleanCGI(epoll_fd, pids_it, map_fds);
 				std::map<pid_t, t_pid_context>::iterator aux_it = pids_it;
 				++pids_it;
@@ -187,7 +197,7 @@ void initServer(std::vector<ServerConfig> &serverList)
 				pids_it->second.time++;
 				++pids_it;
 			}
-		}*/
+		}
 		
 		int n_events = epoll_wait(epoll_fd, events, MAX_EVENTS, 100);
 		if (n_events == -1)
@@ -205,10 +215,16 @@ void initServer(std::vector<ServerConfig> &serverList)
 			t_fd_data *fd_data = static_cast<t_fd_data *>(events[i].data.ptr);
 			if (fd_data->type == LISTEN_SOCKET)
 				createClientSocket(static_cast<t_listen_socket *>(fd_data->data), epoll_fd, map_fds);
-			else/*if (fd_data->type == CLIENT_SOCKET)*/
+			else if (fd_data->type == CLIENT_SOCKET)
 				utils::handleClientSocket(fd_data, server_context, events, i);
-			//else if (fd_data->type == CGI_PIPE_IN)
-			//else if (fd_data->type == CGI_PIPE_OUT)
+			else if (fd_data->type == CGI_PIPE_WRITE)
+			{
+				
+			}
+			else if (fd_data->type == CGI_PIPE_READ)
+			{
+
+			}
 		}
 	}
 	UtilsCC::closeServer(epoll_fd, map_fds, map_pids);
