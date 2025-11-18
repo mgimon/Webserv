@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cctype>
 #include <sys/stat.h>
+#include <unistd.h>
 
 // Constructor y destructor
 ConfigParser::ConfigParser() : line_number_(0) {}
