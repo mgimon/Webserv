@@ -643,43 +643,6 @@ std::string makeRelative(std::string path)
     return (path);
 }
 
-/*std::string generateAutoindexRoot(const std::string& Path, const std::string& directory)
-{
-    const std::string dirPath = Path + directory;
-    DIR* dir = opendir(makeRelative(dirPath).c_str());
-    if (!dir)
-        throw std::runtime_error("Cannot open directory");
-
-    std::ostringstream html;
-    html << "<html><head><title>Autoindex</title>"
-            "<link rel=\"stylesheet\" href=\"/styles.css\" />"
-            "</head>"
-         << "<body class=\"autoindex\">"
-         << "<h1>Autoindex</h1><ul>";
-
-
-    struct dirent* entry;
-    while ((entry = readdir(dir)) != NULL)
-    {
-        std::string name = entry->d_name;
-        if (name == "." || name == "..")
-            continue;
-
-        std::string fullPath = dirPath + "/" + name;
-        struct stat st;
-        if (stat(fullPath.c_str(), &st) == 0 && S_ISDIR(st.st_mode))
-            name += "/"; // marcar directorios
-
-        // link vacio, el hiperlink construye la url en el navegador
-        html << "<li><a href=\"";
-        html << name << "\">" << name << "</a></li>";
-    }
-
-    html << "</ul></body></html>";
-    closedir(dir);
-    return (html.str());
-}*/
-
 std::string generateAutoindexRoot(const std::string& Path, const std::string& directory)
 {
     const std::string dirPath = Path + directory;
