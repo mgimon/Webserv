@@ -3,7 +3,7 @@
 namespace CGI
 {
 
-Handler::Handler() : cgi_(NULL), nameScript_(NULL), pathScript_(NULL), env_(NULL), request_(), server_context_(), client_socket_(NULL) {}
+Handler::Handler() : cgi_(NULL), nameScript_(""), pathScript_(""), env_(NULL), request_(), server_context_(), client_socket_(NULL) {}
 Handler::Handler(const Handler& other) : cgi_(other.cgi_), nameScript_(other.nameScript_), pathScript_(other.pathScript_), env_(other.env_), request_(other.request_), server_context_(other.server_context_), client_socket_(other.client_socket_) {}
 Handler& Handler::operator=(const Handler& other) { if (this != &other) { cgi_ = other.cgi_; nameScript_ = other.nameScript_; pathScript_ = other.pathScript_; env_ = other.env_; request_ = other.request_; server_context_ = other.server_context_; client_socket_ = other.client_socket_; } return *this; }
 Handler::~Handler() {}
