@@ -29,7 +29,7 @@ namespace utils {
     void readFromSocket(t_fd_data *fd_data, t_client_socket *client_socket, int epoll_fd, std::map<int, t_fd_data *> &map_fds);
 
     int respondGet(ServerConfig &serverOne, int client_fd, std::string path, const HttpRequest &http_request, HttpResponse &http_response);
-    int	respond(int client_fd, const HttpRequest &http_request, ServerConfig &serverOne);
+    int	respond(t_server_context &server_context, t_client_socket *client_socket, int client_fd, const HttpRequest &http_request, ServerConfig &serverOne);
     void handleClientSocket(t_fd_data *fd_data, t_server_context &server_context, epoll_event (&events)[MAX_EVENTS], int i);
 
     std::string generateAutoindexRoot(const std::string& Path, const std::string& directory);
@@ -44,6 +44,7 @@ namespace utils {
     int checkConnectionClose(const HttpRequest &http_request, HttpResponse &http_response);
     std::string getCgiScriptNameFromPath(const std::string &path);
     std::string getCgiScriptPathFromPath(const std::string &path);
+    std::string toUpper(const std::string& str);
 }
 
 #endif

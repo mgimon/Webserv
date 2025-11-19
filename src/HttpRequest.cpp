@@ -34,7 +34,6 @@ void HttpRequest::printRequest() const {
         std::cout << GREEN << "    " << this->getBody() << RESET << std::endl;
 }
 
-
 void HttpRequest::trimPathSlashes(std::string &path)
 {
     while (!path.empty() && path != "/" && path[path.size() - 1] == '/')
@@ -95,6 +94,14 @@ void HttpRequest::parseRequest(const std::string &str)
     body_ = bodyStream.str();
     if (!body_.empty() && body_[body_.size() - 1] == '\n')
         body_.erase(body_.size() - 1, 1);
+}
+
+std::string HttpRequest::findHeader(const std::map<std::string, std::string>& headers, const std::string& key) const
+{
+    std::map<std::string, std::string>::const_iterator it = headers.find(key);
+    if (it != headers.end())
+        return it->second;
+    return ("");
 }
 
 bool HttpRequest::exceedsMaxBodySize(size_t client_maxbodysize) const

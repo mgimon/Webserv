@@ -6,6 +6,7 @@
 
 #include "../include/initServer.hpp"
 #include "../include/ServerConfig.hpp"
+#include <string>
 
 
 
@@ -17,8 +18,8 @@ namespace CGI
 	{
 		private:
 			const char *cgi_;
-			const char *nameScript_;
-			const char *pathScript_;
+			std::string nameScript_;
+			std::string pathScript_;
 			char **env_;
 			std::string request_;
 			t_server_context *server_context_;
@@ -32,8 +33,8 @@ namespace CGI
 
 			// Getters
 			const char* getCgi() const;
-			const char* getNameScript() const;
-			const char* getPathScript() const;
+			std::string getNameScript() const;
+			std::string getPathScript() const;
 			char** getEnv() const;
 			std::string& getRequest() const;
 			t_server_context* getServerContext() const;
@@ -41,10 +42,10 @@ namespace CGI
 
 			// Setters
 			void setCgi(const char* cgi);
-			void setNameScript(const char* nameScript);
-			void setPathScript(const char* pathScript);
+			void setNameScript(const std::string &nameScript);
+			void setPathScript(const std::string &pathScript);
 			void setEnv(char** env);
-			void setRequest(std::string &request);
+			void setRequest(const std::string &request);
 			void setServerContext(t_server_context *server_context);
 			void setClientSocket(t_client_socket *client_socket);
 

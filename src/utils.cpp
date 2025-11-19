@@ -850,35 +850,51 @@ bool hasWXPermission(const std::string &path)
 
 char **allocateCgiEnv(const LocationConfig *requestLocation, const HttpRequest &http_request, ServerConfig &serverOne)
 {
-    char **env = new char*[11];
+    (void)requestLocation;
+    int headers = static_cast<int>(http_request.getHeaders().size());
+    int size = 11 + headers;
+    char **env = new char*[size];
+    std::ostringstream oss;
     std::string env_var;
 
     env_var = "REQUEST_METHOD=" + http_request.getMethod();
     env[0] = strdup(env_var.c_str());
     env_var = "QUERY_STRING=" + std::string(""); 
     env[1] = strdup(env_var.c_str());
-    env_var = "CONTENT_LENGTH=" + std::string(""); 
+    oss << http_request.getBody().size();
+    env_var = "CONTENT_LENGTH=" + oss.str(); 
     env[2] = strdup(env_var.c_str());
-    env_var = "CONTENT_TYPE=" + std::string(""); 
+    env_var = "CONTENT_TYPE=" + http_request.findHeader(http_request.getHeaders(), "Content-Type"); 
     env[3] = strdup(env_var.c_str());
-    env_var = "SCRIPT_NAME=" + std::string(""); 
+    env_var = "SCRIPT_NAME=" + http_request.getPath(); // si es root no aparece /var/www/html ?
     env[4] = strdup(env_var.c_str());
-    env_var = "SCRIPT_PATH=" + std::string(""); 
+    env_var = "PATH_INFO=" + std::string(""); 
     env[5] = strdup(env_var.c_str());
-    env_var = "SCRIPT_FILENAME=" + std::string(""); 
+    env_var = "SERVER_NAME=" + serverOne.getServerName();
     env[6] = strdup(env_var.c_str());
-    env_var = "REMOTE_ADDR=" + std::string(""); 
+    oss.str("");
+    oss.clear();
+    oss << serverOne.getPort();
+    env_var = "SERVER_PORT=" + oss.str();
     env[7] = strdup(env_var.c_str());
-    env_var = "SERVER_NAME=" + std::string(""); 
+    env_var = "SERVER_PROTOCOL=HTTP/1.0"; 
     env[8] = strdup(env_var.c_str());
-    env_var = "INTERPRET=" + std::string(""); 
+    env_var = "SERVER_SOFTWARE=" + std::string("webserv/1.0"); 
     env[9] = strdup(env_var.c_str());
-    env[10] = NULL;
+
+    int i = 10;
+    for (std::map<std::string, std::string>::const_iterator it = http_request.getHeaders().begin(); it != http_request.getHeaders().end(); ++it)
+    {
+        env_var = "HTTP_" + toUpper(it->first) + "=" + it->second;
+        env[i] = strdup(env_var.c_str());
+        i++;
+    }
+    env[10 + headers] = NULL;
 
     return (env);
 }
 
-int respondCGI(const LocationConfig *requestLocation, int client_fd, const HttpRequest &http_request, HttpResponse &http_response, ServerConfig &serverOne)
+int respondCGI(t_server_context &server_context, t_client_socket *client_socket, const LocationConfig *requestLocation, int client_fd, const HttpRequest &http_request, HttpResponse &http_response, ServerConfig &serverOne)
 {
     //if (!access http_request.getPath())
         //-> 403
@@ -889,15 +905,21 @@ int respondCGI(const LocationConfig *requestLocation, int client_fd, const HttpR
 
     CgiHandler.setEnv(allocateCgiEnv(requestLocation, http_request, serverOne)); // recordar liberar
     CgiHandler.setCgi(requestLocation->getPythonCGIExecutable().c_str());
-    CgiHandler.setNameScript(getCgiScriptNameFromPath(http_request.getPath()).c_str());
-    CgiHandler.setPathScript(getCgiScriptPathFromPath(http_request.getPath()).c_str());
+    CgiHandler.setNameScript(getCgiScriptNameFromPath(http_request.getPath()));
+    CgiHandler.setPathScript(getCgiScriptPathFromPath(http_request.getPath()));
+    CgiHandler.setRequest(http_request.getMethod());
+    CgiHandler.setClientSocket(client_socket);
+    CgiHandler.setServerContext(&server_context);
 
     // meter un respond cualquiera y printear con CgiHandler.printAttributes() tras request de CGI;
-    
+    CgiHandler.printAttributes();
+    http_response.setError(getErrorPath(serverOne, 100), 100, "Custom");
+    http_response.respondInClient(client_fd);
+    return (-1);
     // CGI::startCGI();
 }
 
-int respond(int client_fd, const HttpRequest &http_request, ServerConfig &serverOne)
+int respond(t_server_context &server_context, t_client_socket *client_socket, int client_fd, const HttpRequest &http_request, ServerConfig &serverOne)
 {
     HttpResponse    http_response;
     int             keep_alive = checkConnectionClose(http_request, http_response);
@@ -918,7 +940,7 @@ int respond(int client_fd, const HttpRequest &http_request, ServerConfig &server
     if (serveRedirect(http_request, serverOne, requestLocation, client_fd, http_response) == 1)
         return (0);
     if (http_request.getPath().find(".py") != std::string::npos && !locationMatchforRequest(http_request.getPath(), serverOne.getLocations())->getPythonCGIExecutable().empty())
-        return (respondCGI(requestLocation, client_fd, http_request, http_response, serverOne));
+        return (respondCGI(server_context, client_socket, requestLocation, client_fd, http_request, http_response, serverOne));
 
     // serve NORMAL REQUEST
     if (method == "GET")
@@ -945,6 +967,14 @@ void removeConnection(t_client_socket *client_socket, t_fd_data *fd_data, int ep
     delete(client_socket);
     delete(fd_data);
     map_fds.erase(socket_fd);
+}
+
+std::string toUpper(const std::string& str)
+{
+    std::string result = str;
+    for (std::string::size_type i = 0; i < result.size(); ++i)
+        result[i] = std::toupper(static_cast<unsigned char>(result[i]));
+    return (result);
 }
 
 bool ends_with_py(const std::string& str)
@@ -1019,12 +1049,15 @@ void handleClientSocket(t_fd_data *fd_data, t_server_context &server_context, ep
         QUERY_STRING	    nombre=Juan&edad=30	                Todo lo que viene después del ? en la URL
         CONTENT_LENGTH	    123	                                Longitud del cuerpo (si POST)
         CONTENT_TYPE	    application/x-www-form-urlencoded	Tipo de datos enviados
-        SCRIPT_NAME	        test.py	                            Nombre del script CGI
-        SCRIPT_PATH         /var/www/html/cgi-bin/              -
-        SCRIPT_FILENAME	    /var/www/html/cgi-bin/test.py	    Ruta completa en el servidor
+        SCRIPT_NAME	        /var/www/html/cgi-bin/test.py       Nombre del script CGI
+        PATH_INFO           ""
+        SERVER_NAME         localhost
+        SERVER_PORT         8080
+        SERVER_PROTOCOL     HTTP/1.0
+        SERVER_SOFTWARE     webserv/1.0
         REMOTE_ADDR	        192.168.1.2	                        IP del cliente
-        SERVER_NAME	        mi-servidor.com	                    Nombre del servidor
-        INTERPRET           /usr/bin/python3                    -
+        REMOTE_PORT
+        HTTP_*              cabeceras http convertidas         
         */
 
         //DENTRO DE RESPOND
@@ -1037,7 +1070,7 @@ void handleClientSocket(t_fd_data *fd_data, t_server_context &server_context, ep
         //else
             //->respond normal y QSLQDQ
 
-        if (respond(client_socket->socket_fd, http_request, client_socket->server) == -1) // Client requests Connection:close, or Error
+        if (respond(server_context, client_socket, client_socket->socket_fd, http_request, client_socket->server) == -1) // Client requests Connection:close, or Error
             removeConnection(client_socket, fd_data, server_context.epoll_fd, server_context.map_fds);
         else
             client_socket->readBuffer.clear();

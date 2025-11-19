@@ -48,6 +48,7 @@ class HttpRequest {
         void trimPathSlashes(std::string &path);
         void parseRequest(const std::string &str);
         bool exceedsMaxBodySize(size_t client_maxbodysize) const;
+        std::string findHeader(const std::map<std::string, std::string>& headers, const std::string& key) const;
 };
 
 #endif

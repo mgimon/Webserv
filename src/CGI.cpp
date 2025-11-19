@@ -9,18 +9,18 @@ Handler& Handler::operator=(const Handler& other) { if (this != &other) { cgi_ =
 Handler::~Handler() {}
 
 const char* Handler::getCgi() const { return cgi_; }
-const char* Handler::getNameScript() const { return nameScript_; }
-const char* Handler::getPathScript() const { return pathScript_; }
+std::string Handler::getNameScript() const { return nameScript_; }
+std::string Handler::getPathScript() const { return pathScript_; }
 char** Handler::getEnv() const { return env_; }
 std::string& Handler::getRequest() const { return const_cast<std::string&>(request_); }
 t_server_context* Handler::getServerContext() const { return server_context_; }
 t_client_socket* Handler::getClientSocket() const { return client_socket_; }
 
 void Handler::setCgi(const char* cgi) { cgi_ = cgi; }
-void Handler::setNameScript(const char* nameScript) { nameScript_ = nameScript; }
-void Handler::setPathScript(const char* pathScript) { pathScript_ = pathScript; }
+void Handler::setNameScript(const std::string &nameScript) { nameScript_ = nameScript; }
+void Handler::setPathScript(const std::string &pathScript) { pathScript_ = pathScript; }
 void Handler::setEnv(char** env) { env_ = env; }
-void Handler::setRequest(std::string &request) { request_ = request; }
+void Handler::setRequest(const std::string &request) { request_ = request; }
 void Handler::setServerContext(t_server_context *server_context) { server_context_ = server_context; }
 void Handler::setClientSocket(t_client_socket *client_socket) { client_socket_ = client_socket; }
 
@@ -29,8 +29,8 @@ void Handler::printAttributes() const
 	std::cout << PINK
 		<< "Printing CGI Handler attributes: " << std::endl
 		<< "cgi_: " << (cgi_ ? cgi_ : "NULL") << std::endl
-		<< "nameScript_: " << (nameScript_ ? nameScript_ : "NULL") << std::endl
-		<< "pathScript_: " << (pathScript_ ? pathScript_ : "NULL") << std::endl
+		<< "nameScript_: " << nameScript_ << std::endl
+		<< "pathScript_: " << pathScript_ << std::endl
 		<< "env_: " << (env_ ? *env_ : "NULL") << std::endl
 		<< "request_: " << request_ << std::endl
 		<< "server_context_: " << server_context_ << std::endl
@@ -55,7 +55,7 @@ int addPipeWrite(int pipe_write_fd, int pipe_read_fd, pid_t pid, t_client_socket
 		t_fd_data *pipe_read_data = server_context.map_fds.at(pipe_read_fd);
 		epoll_ctl(server_context.epoll_fd, EPOLL_CTL_DEL, pipe_read_fd, NULL);
 		close(pipe_read_fd);
-		delete(pipe_read_data->data);
+		free(pipe_read_data->data); // delete(pipe_read_data->data); Manu cambio 19/11
 		delete(pipe_read_data);
 		server_context.map_fds.erase(pipe_read_fd);
 		//Liberamos el write pipe
@@ -150,6 +150,7 @@ int startCGI(const std::string &cgi, const std::string &nameScript, const std::s
 	int pipe_write[2]; // Padre escribe, hijo lee
 	int pipe_read[2]; // Padre lee, hijo escribe
 	epoll_event ev_pipe_read;
+	(void)ev_pipe_read; // Manu 19/11
 
 	if (pipe(pipe_write) == -1)
 		return (0); // Devolver un 500 error al cliente

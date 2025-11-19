@@ -11,7 +11,8 @@ SRCS = main.cpp utils.cpp utilsCC.cpp \
 		HttpResponse.cpp \
 		initServer.cpp \
 		ConfigParser.cpp \
-		Signals.cpp
+		Signals.cpp \
+		CGI.cpp
 
 OBJS = $(SRCS:.cpp=.o)
 INCLUDES = -I $(INC_DIR)

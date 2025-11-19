@@ -20,6 +20,7 @@ bool ServerConfig::getAutoindex() const { return autoindex_; }
 const std::vector<LocationConfig> &ServerConfig::getLocations() const { return locations_; }
 std::vector<t_listen> ServerConfig::getListens() const { return listens_; }
 size_t ServerConfig::getClientMaxBodySize() const { return client_maxbodysize_; }
+std::string ServerConfig::getServerName() const { return server_name_; }
 
 
 void ServerConfig::setBufferSize(int buffer_size) { buffer_size_ = buffer_size; }
