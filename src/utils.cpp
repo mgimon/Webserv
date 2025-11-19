@@ -848,7 +848,55 @@ bool hasWXPermission(const std::string &path)
         return (false);
 }
 
-// Debe incluir gestion de CGI
+char **allocateCgiEnv(const LocationConfig *requestLocation, const HttpRequest &http_request, ServerConfig &serverOne)
+{
+    char **env = new char*[11];
+    std::string env_var;
+
+    env_var = "REQUEST_METHOD=" + http_request.getMethod();
+    env[0] = strdup(env_var.c_str());
+    env_var = "QUERY_STRING=" + std::string(""); 
+    env[1] = strdup(env_var.c_str());
+    env_var = "CONTENT_LENGTH=" + std::string(""); 
+    env[2] = strdup(env_var.c_str());
+    env_var = "CONTENT_TYPE=" + std::string(""); 
+    env[3] = strdup(env_var.c_str());
+    env_var = "SCRIPT_NAME=" + std::string(""); 
+    env[4] = strdup(env_var.c_str());
+    env_var = "SCRIPT_PATH=" + std::string(""); 
+    env[5] = strdup(env_var.c_str());
+    env_var = "SCRIPT_FILENAME=" + std::string(""); 
+    env[6] = strdup(env_var.c_str());
+    env_var = "REMOTE_ADDR=" + std::string(""); 
+    env[7] = strdup(env_var.c_str());
+    env_var = "SERVER_NAME=" + std::string(""); 
+    env[8] = strdup(env_var.c_str());
+    env_var = "INTERPRET=" + std::string(""); 
+    env[9] = strdup(env_var.c_str());
+    env[10] = NULL;
+
+    return (env);
+}
+
+int respondCGI(const LocationConfig *requestLocation, int client_fd, const HttpRequest &http_request, HttpResponse &http_response, ServerConfig &serverOne)
+{
+    //if (!access http_request.getPath())
+        //-> 403
+    //else
+        //-> creamos el objeto CGI Handler y llamamos a startCGI
+
+    CGI::Handler CgiHandler;
+
+    CgiHandler.setEnv(allocateCgiEnv(requestLocation, http_request, serverOne)); // recordar liberar
+    CgiHandler.setCgi(requestLocation->getPythonCGIExecutable().c_str());
+    CgiHandler.setNameScript(getCgiScriptNameFromPath(http_request.getPath()).c_str());
+    CgiHandler.setPathScript(getCgiScriptPathFromPath(http_request.getPath()).c_str());
+
+    // meter un respond cualquiera y printear con CgiHandler.printAttributes() tras request de CGI;
+    
+    // CGI::startCGI();
+}
+
 int respond(int client_fd, const HttpRequest &http_request, ServerConfig &serverOne)
 {
     HttpResponse    http_response;
@@ -856,9 +904,23 @@ int respond(int client_fd, const HttpRequest &http_request, ServerConfig &server
     const std::string &method = http_request.getMethod();
     const LocationConfig *requestLocation = locationMatchforRequest(http_request.getPath(), serverOne.getLocations());
 
+    if (!requestLocation)
+    {
+        http_response.setError(getErrorPath(serverOne, 404), 404, "Not Found");
+        if (http_response.respondInClient(client_fd) == -1)
+            return (-1);
+        return (keep_alive);
+    }
+
     std::cout << YELLOW << "Request location is " << requestLocation->getPath() << RESET << std::endl;
-    if (requestLocation && serveRedirect(http_request, serverOne, requestLocation, client_fd, http_response) == 1)
+
+    // serve REDIRECT or CGI
+    if (serveRedirect(http_request, serverOne, requestLocation, client_fd, http_response) == 1)
         return (0);
+    if (http_request.getPath().find(".py") != std::string::npos && !locationMatchforRequest(http_request.getPath(), serverOne.getLocations())->getPythonCGIExecutable().empty())
+        return (respondCGI(requestLocation, client_fd, http_request, http_response, serverOne));
+
+    // serve NORMAL REQUEST
     if (method == "GET")
         return (serveGet(requestLocation, client_fd, http_request, http_response, serverOne));
     else if (method == "POST")
@@ -957,21 +1019,23 @@ void handleClientSocket(t_fd_data *fd_data, t_server_context &server_context, ep
         QUERY_STRING	    nombre=Juan&edad=30	                Todo lo que viene después del ? en la URL
         CONTENT_LENGTH	    123	                                Longitud del cuerpo (si POST)
         CONTENT_TYPE	    application/x-www-form-urlencoded	Tipo de datos enviados
-        SCRIPT_NAME	        /cgi-bin/test.py	                Nombre del script CGI
-        SCRIPT_FILENAME	    /var/www/cgi-bin/test.py	        Ruta completa en el servidor
+        SCRIPT_NAME	        test.py	                            Nombre del script CGI
+        SCRIPT_PATH         /var/www/html/cgi-bin/              -
+        SCRIPT_FILENAME	    /var/www/html/cgi-bin/test.py	    Ruta completa en el servidor
         REMOTE_ADDR	        192.168.1.2	                        IP del cliente
         SERVER_NAME	        mi-servidor.com	                    Nombre del servidor
+        INTERPRET           /usr/bin/python3                    -
         */
 
-
+        //DENTRO DE RESPOND
         //if (http_request.getPath().find(".py") != std::string::npos && locationMatchforRequest(http_request.getPath(), client_socket->server.getLocations())->isCgi() == true)
-        //{
-            const LocationConfig *requestLocation = locationMatchforRequest(http_request.getPath(), client_socket->server.getLocations());
-            char *cgiInterpretDir = "usr/bin";
-            const char *scriptName = getCgiScriptNameFromPath(http_request.getPath()).c_str();
-            const char *scriptPath = getCgiScriptPathFromPath(http_request.getPath()).c_str();
-            CGI::startCGI(cgiInterpretDir, const_cast<char*>(scriptName), const_cast<char*>(scriptPath), char **env, const std::string &request, t_server_context &server_context, t_client_socket *client_socket);
-        //}
+            //->entramos en respond-cgi
+                //if (!access http_request.getPath())
+                    //-> 403
+                //else
+                    //-> creamos el objeto CGI Handler y llamamos a startCGI
+        //else
+            //->respond normal y QSLQDQ
 
         if (respond(client_socket->socket_fd, http_request, client_socket->server) == -1) // Client requests Connection:close, or Error
             removeConnection(client_socket, fd_data, server_context.epoll_fd, server_context.map_fds);

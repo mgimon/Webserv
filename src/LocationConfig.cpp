@@ -3,7 +3,7 @@
 /** CANONICAL **/
 LocationConfig::LocationConfig() : redirect_(0, ""), path_("/"), autoindex_(false), root_override_("") {}
 LocationConfig::LocationConfig(const std::string& path, const std::vector<std::string>& methods, bool autoindex, const std::string& root_override) : redirect_(0, ""), path_(path), methods_(methods), autoindex_(autoindex), root_override_(root_override) {}
-LocationConfig::LocationConfig(const LocationConfig& other) : redirect_(other.redirect_), path_(other.path_), methods_(other.methods_), autoindex_(other.autoindex_), root_override_(other.root_override_), index_files_(other.index_files_) {}
+LocationConfig::LocationConfig(const LocationConfig& other) : redirect_(other.redirect_), path_(other.path_), methods_(other.methods_), autoindex_(other.autoindex_), root_override_(other.root_override_), index_files_(other.index_files_), exec_cgi_(other.exec_cgi_) {}
 LocationConfig& LocationConfig::operator=(const LocationConfig& other) {
 	if (this != &other) {
 		redirect_ = other.redirect_;
@@ -12,6 +12,7 @@ LocationConfig& LocationConfig::operator=(const LocationConfig& other) {
 		autoindex_ = other.autoindex_;
 		root_override_ = other.root_override_;
 		index_files_ = other.index_files_;
+		exec_cgi_ = other.exec_cgi_;
 	}
 	return *this;
 }
@@ -57,4 +58,11 @@ const std::vector<std::string>& LocationConfig::getLocationIndexFiles() const {
 }
 void  LocationConfig::setLocationIndexFiles(const std::vector<std::string>&index_files) {
 	index_files_ = index_files; 
+}
+
+void LocationConfig::setPythonCGIExecutable(const std::string& executable) {
+	exec_cgi_ = executable;
+}
+std::string LocationConfig::getPythonCGIExecutable() const {
+	return exec_cgi_;
 }

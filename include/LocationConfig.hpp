@@ -13,6 +13,7 @@ class LocationConfig {
 		bool autoindex_;                       // true = on, false = off
 		std::string root_override_;            // Si un location tiene su propio root
 		std::vector<std::string>	index_files_;
+		std::string exec_cgi_;
 
 	public:
 		LocationConfig();
@@ -40,6 +41,8 @@ class LocationConfig {
 		void printLocation() const;
 		const std::vector<std::string>& getLocationIndexFiles() const;
 		void setLocationIndexFiles(const std::vector<std::string>&index_files);
+		void setPythonCGIExecutable(const std::string& executable);
+		std::string getPythonCGIExecutable() const;
 };
 
 #endif

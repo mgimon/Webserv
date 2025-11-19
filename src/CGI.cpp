@@ -1,5 +1,43 @@
 #include "../include/CGI.hpp"
 
+namespace CGI
+{
+
+Handler::Handler() : cgi_(NULL), nameScript_(NULL), pathScript_(NULL), env_(NULL), request_(), server_context_(), client_socket_(NULL) {}
+Handler::Handler(const Handler& other) : cgi_(other.cgi_), nameScript_(other.nameScript_), pathScript_(other.pathScript_), env_(other.env_), request_(other.request_), server_context_(other.server_context_), client_socket_(other.client_socket_) {}
+Handler& Handler::operator=(const Handler& other) { if (this != &other) { cgi_ = other.cgi_; nameScript_ = other.nameScript_; pathScript_ = other.pathScript_; env_ = other.env_; request_ = other.request_; server_context_ = other.server_context_; client_socket_ = other.client_socket_; } return *this; }
+Handler::~Handler() {}
+
+const char* Handler::getCgi() const { return cgi_; }
+const char* Handler::getNameScript() const { return nameScript_; }
+const char* Handler::getPathScript() const { return pathScript_; }
+char** Handler::getEnv() const { return env_; }
+std::string& Handler::getRequest() const { return const_cast<std::string&>(request_); }
+t_server_context* Handler::getServerContext() const { return server_context_; }
+t_client_socket* Handler::getClientSocket() const { return client_socket_; }
+
+void Handler::setCgi(const char* cgi) { cgi_ = cgi; }
+void Handler::setNameScript(const char* nameScript) { nameScript_ = nameScript; }
+void Handler::setPathScript(const char* pathScript) { pathScript_ = pathScript; }
+void Handler::setEnv(char** env) { env_ = env; }
+void Handler::setRequest(std::string &request) { request_ = request; }
+void Handler::setServerContext(t_server_context *server_context) { server_context_ = server_context; }
+void Handler::setClientSocket(t_client_socket *client_socket) { client_socket_ = client_socket; }
+
+void Handler::printAttributes() const
+{
+	std::cout << PINK
+		<< "Printing CGI Handler attributes: " << std::endl
+		<< "cgi_: " << (cgi_ ? cgi_ : "NULL") << std::endl
+		<< "nameScript_: " << (nameScript_ ? nameScript_ : "NULL") << std::endl
+		<< "pathScript_: " << (pathScript_ ? pathScript_ : "NULL") << std::endl
+		<< "env_: " << (env_ ? *env_ : "NULL") << std::endl
+		<< "request_: " << request_ << std::endl
+		<< "server_context_: " << server_context_ << std::endl
+		<< "client_socket_: " << client_socket_ << std::endl
+	<< RESET << std::endl;
+}
+
 int addPipeWrite(int pipe_write_fd, int pipe_read_fd, pid_t pid, t_client_socket *client_socket, t_server_context &server_context)
 {
 	epoll_event ev_pipe_write;
@@ -155,4 +193,6 @@ int startCGI(const std::string &cgi, const std::string &nameScript, const std::s
 		server_context.map_pids.insert(std::make_pair(pid, pid_context));
 	}
 	return(1);
+}
+
 }
