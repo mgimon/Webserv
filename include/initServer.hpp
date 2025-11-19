@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../include/ServerConfig.hpp"
+#include "ServerConfig.hpp"
 #include <netdb.h>
 #include <list>
 #include <map>

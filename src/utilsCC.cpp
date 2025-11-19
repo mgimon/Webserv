@@ -53,6 +53,7 @@ void UtilsCC::closeServer(int epoll_fd, std::map<int, t_fd_data*> &map_fds)
 void cleanCGI(std::map<pid_t, t_pid_context>::iterator &pid_it, 
 			  std::map<int, t_fd_data *> &map_fds)
 {
+	//Liberamos write pipe
 	if (!pid_it->second.write_finished)
 	{
 		int pipe_write_fd = pid_it->second.pipe_write_fd;

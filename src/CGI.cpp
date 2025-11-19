@@ -6,6 +6,7 @@ int addPipeWrite(int pipe_write_fd, int pipe_read_fd, pid_t pid, std::string req
 	epoll_event ev_pipe_write;
 	s_CGI_pipe_write *s_pipe_write = NULL;
 	t_fd_data *pipe_write_data = NULL;
+	bool epoll_inserted = false;
 	bool data_inserted = false;
 
 	try
@@ -16,7 +17,8 @@ int addPipeWrite(int pipe_write_fd, int pipe_read_fd, pid_t pid, std::string req
 		ev_pipe_write.events = EPOLLOUT | EPOLLHUP | EPOLLERR;
 		ev_pipe_write.data.ptr = pipe_write_data;
 		if (epoll_ctl(server_context.epoll_fd, EPOLL_CTL_ADD, pipe_write_fd, &ev_pipe_write) == -1)
-			throw(std::runtime_error(strerror(errno)));
+			throw std::runtime_error(strerror(errno));
+		epoll_inserted = true;
 		data_inserted = server_context.map_fds.insert(std::make_pair(pipe_write_fd, pipe_write_data)).second;
 		
 		t_pid_context pid_context = {0, pipe_write_fd, pipe_read_fd, client_socket->socket_fd, false};
@@ -24,7 +26,7 @@ int addPipeWrite(int pipe_write_fd, int pipe_read_fd, pid_t pid, std::string req
 	}
 	catch(const std::exception& e)
 	{
-		std::cerr << e.what() << std::endl;
+		std::cerr << RED << e.what() << RESET << std::endl;
 		//Liberamos el read pipe
 		t_fd_data *pipe_read_data = server_context.map_fds.at(pipe_read_fd);
 		epoll_ctl(server_context.epoll_fd, EPOLL_CTL_DEL, pipe_read_fd, NULL);
@@ -33,16 +35,15 @@ int addPipeWrite(int pipe_write_fd, int pipe_read_fd, pid_t pid, std::string req
 		delete(pipe_read_data);
 		server_context.map_fds.erase(pipe_read_fd);
 		//Liberamos el write pipe
+		if (epoll_inserted)
+			epoll_ctl(server_context.epoll_fd, EPOLL_CTL_DEL, pipe_read_fd, NULL);
 		close(pipe_write_fd);
 		if (s_pipe_write != NULL)
 			delete(s_pipe_write);
 		if (pipe_write_data != NULL)
 			delete(pipe_write_data);
-		if (data_inserted)
-		{
-			epoll_ctl(server_context.epoll_fd, EPOLL_CTL_DEL, pipe_read_fd, NULL);
+		if (data_inserted)	
 			server_context.map_fds.erase(pipe_write_fd);
-		}
 		kill(pid, SIGKILL); // Cerramos el proceso hijo
 		return (0); // Devolver un 500 error al cliente
 	}
@@ -54,7 +55,8 @@ int addPipeRead(int pipe_write_fd, int pipe_read_fd, pid_t pid, t_client_socket 
 	epoll_event ev_pipe_read;
 	s_CGI_pipe_read *s_pipe_read = NULL;
 	t_fd_data *pipe_read_data = NULL;
-	
+	bool epoll_inserted = false;
+
 	try
 	{
 		s_pipe_read = new s_CGI_pipe_read(pipe_read_fd, pid, client_socket);
@@ -62,14 +64,17 @@ int addPipeRead(int pipe_write_fd, int pipe_read_fd, pid_t pid, t_client_socket 
 		ev_pipe_read.events = EPOLLIN | EPOLLHUP | EPOLLERR;
 		ev_pipe_read.data.ptr = pipe_read_data;
 		if (epoll_ctl(server_context.epoll_fd, EPOLL_CTL_ADD, pipe_read_fd, &ev_pipe_read) == -1)
-			throw(std::runtime_error(strerror(errno)));
+			throw std::runtime_error(strerror(errno));
+		epoll_inserted = true;
 		server_context.map_fds.insert(std::make_pair(pipe_read_fd, pipe_read_data));
 	}
 	catch(const std::exception& e)
 	{
-		std::cerr << e.what() << std::endl;
+		std::cerr << RED << e.what() << RESET << std::endl;
 		//Liberamos el read pipe y cerrramos el fd de write pipes
 		close(pipe_write_fd);
+		if (epoll_inserted)
+			epoll_ctl(server_context.epoll_fd, EPOLL_CTL_DEL, pipe_read_fd, NULL);
 		close(pipe_read_fd);
 		if (s_pipe_read != NULL)
 			delete(s_pipe_read);
@@ -174,7 +179,7 @@ int startCGI(const std::string &cgi, const std::string &nameScript, const std::s
 		}
 		catch(const std::exception& e)
 		{
-			std::cerr << e.what() << std::endl;
+			std::cerr << RED << e.what() << RESET << std::endl;
 			//Liberamos el read pipe
 			t_fd_data *pipe_read_data = server_context.map_fds.at(pipe_read[0]);
 			epoll_ctl(server_context.epoll_fd, EPOLL_CTL_DEL, pipe_read[0], NULL);
