@@ -18,19 +18,6 @@ enum FDType
 	CGI_PIPE_READ
 };
 
-typedef struct s_client_socket
-{
-	int				socket_fd;
-	ServerConfig&	server;
-	std::string		readBuffer;
-
-	//Constructor
-	s_client_socket(int fd, ServerConfig& srv, const std::string& buffer) : 
-        socket_fd(fd), 
-        server(srv), // Inicializa la referencia correctamente
-        readBuffer(buffer) {}
-}	t_client_socket;
-
 typedef struct s_CGI_pipe_read
 {
 	int fd;
@@ -48,7 +35,8 @@ typedef struct s_CGI_pipe_write
 	int fd;
 	int pipe_read_fd;
 	std::string request_body;
-	int content_length;
+	size_t content_length;
+	size_t sended;
 	pid_t pid;
 	t_client_socket *client_socket;
 
@@ -58,9 +46,23 @@ typedef struct s_CGI_pipe_write
 		pipe_read_fd(fd_read), 
 		request_body(body),
 		content_length(body_length),
+		sended(0),
         pid(pid_CGI),
 		client_socket(conexion_socket) {}
 }	t_CGI_pipe_write;
+
+typedef struct s_client_socket
+{
+	int				socket_fd;
+	ServerConfig&	server;
+	std::string		readBuffer;
+
+	//Constructor
+	s_client_socket(int fd, ServerConfig& srv) : 
+        socket_fd(fd), 
+        server(srv), // Inicializa la referencia correctamente
+        readBuffer("") {}
+}	t_client_socket;
 
 typedef struct s_listen_socket
 {

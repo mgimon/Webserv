@@ -710,12 +710,11 @@ void readFromSocket(t_fd_data *fd_data, t_client_socket *client_socket, int epol
     if (bytesRead <= 0)
     {
         //NOTA: SE PODRIA AGRUPAR EL CONTENIDO DEL IF EN UNA FUNCION erase_fd_data()
-        int socket_fd = client_socket->socket_fd;
-        epoll_ctl(epoll_fd, EPOLL_CTL_DEL, socket_fd, NULL);
-        close(socket_fd);
+        epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_socket->socket_fd, NULL);
+        close(client_socket->socket_fd);
+        map_fds.erase(client_socket->socket_fd);
         delete(client_socket);
         delete(fd_data);
-        map_fds.erase(socket_fd);
         return;
     }
     // leido -> append
@@ -877,12 +876,11 @@ int respond(int client_fd, const HttpRequest &http_request, ServerConfig &server
 
 void removeConnection(t_client_socket *client_socket, t_fd_data *fd_data, int epoll_fd, std::map<int, t_fd_data *> &map_fds)
 {
-    int socket_fd = client_socket->socket_fd;
-    epoll_ctl(epoll_fd, EPOLL_CTL_DEL, socket_fd, NULL);
-    close(socket_fd);
+    epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_socket->socket_fd, NULL);
+    close(client_socket->socket_fd);
+    map_fds.erase(client_socket->socket_fd);
     delete(client_socket);
     delete(fd_data);
-    map_fds.erase(socket_fd);
 }
 
 void handleClientSocket(t_fd_data *fd_data, t_server_context &server_context, epoll_event (&events)[MAX_EVENTS], int i)

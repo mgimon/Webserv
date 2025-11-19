@@ -31,7 +31,7 @@ int addPipeWrite(int pipe_write_fd, int pipe_read_fd, pid_t pid, std::string req
 		t_fd_data *pipe_read_data = server_context.map_fds.at(pipe_read_fd);
 		epoll_ctl(server_context.epoll_fd, EPOLL_CTL_DEL, pipe_read_fd, NULL);
 		close(pipe_read_fd);
-		delete(pipe_read_data->data);
+		delete(static_cast<t_CGI_pipe_read*>(pipe_read_data->data));
 		delete(pipe_read_data);
 		server_context.map_fds.erase(pipe_read_fd);
 		//Liberamos el write pipe
@@ -143,7 +143,8 @@ int startCGI(const std::string &cgi, const std::string &nameScript, const std::s
 	int pipe_write[2]; // Padre escribe, hijo lee
 	int pipe_read[2]; // Padre lee, hijo escribe
 
-	if (access(cgi.c_str(), X_OK) == -1 || access(nameScript.c_str(), R_OK | X_OK) == -1)
+	std::string complete_route = pathScript + "/" + nameScript;
+	if (access(cgi.c_str(), X_OK) == -1 || access(complete_route.c_str(), R_OK | X_OK) == -1)
 		return(-1); // Devolver un 403 error al cliente
 	if (configPipes(pipe_write, pipe_read) == 0)
 		return(0); // Devolver un 500 error al cliente

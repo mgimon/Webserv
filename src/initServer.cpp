@@ -143,7 +143,7 @@ void addClientSocket(int epoll_fd, int client_fd, ServerConfig &server, std::map
 
 	try
 	{
-		client_socket = new t_client_socket(client_fd, server, "");
+		client_socket = new t_client_socket(client_fd, server);
 		fd_data = new t_fd_data(client_socket, CLIENT_SOCKET);
 		// Añadimos el socket al epoll
 		ev.events = EPOLLIN | EPOLLHUP | EPOLLERR;
@@ -246,7 +246,36 @@ void initServer(std::vector<ServerConfig> &serverList)
 				utils::handleClientSocket(fd_data, server_context, events, i);
 			else if (fd_data->type == CGI_PIPE_WRITE)
 			{
-			
+				t_CGI_pipe_write *s_pipe_write = static_cast<t_CGI_pipe_write *>(fd_data->data);
+				std::map<pid_t, t_pid_context>::iterator pids_it = map_pids.find(s_pipe_write->pid);
+
+				//Calcular cuanto vamos a enviar
+				size_t remaining = s_pipe_write->content_length - s_pipe_write->sended;
+				size_t send_len = (remaining > 4096) ? 4096 : remaining;
+
+				ssize_t bytesSend = write(s_pipe_write->fd, s_pipe_write->request_body.c_str(), send_len);
+				if (bytesSend <= 0)
+				{
+					kill(s_pipe_write->pid, SIGKILL);
+					//NOTA: ENVIAR ERRROR A CLIENTE
+					UtilsCC::cleanCGI(epoll_fd, pids_it, map_fds);
+					//NECESITO SABER SI EL KEEP ALIVE ESTA PUESTO O NO
+					map_pids.erase(pids_it);
+					continue;
+				}
+				// Si se ha ledio reseteamos el time e incrementamos el contador de bytes enviados
+				pids_it->second.time = 0;
+				s_pipe_write->sended += 4096;
+				//Hacer un erase de lo que hemos enviado
+				s_pipe_write->request_body.erase(s_pipe_write->request_body.begin() - send_len);
+				if (s_pipe_write->sended >= s_pipe_write->content_length)
+				{
+					epoll_ctl(epoll_fd, EPOLL_CTL_DEL, s_pipe_write->fd, NULL);
+					close(s_pipe_write->fd);
+					map_fds.erase(s_pipe_write->fd);
+					delete(s_pipe_write);
+					delete(fd_data);
+				}
 			}
 			else if (fd_data->type == CGI_PIPE_READ)
 			{
