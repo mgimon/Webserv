@@ -7,6 +7,7 @@
 #include <set>
 #include "ServerConfig.hpp"
 #include "LocationConfig.hpp"
+#include "CGI.hpp"
 #include <fstream>
 #include <sstream>
 #include <stdexcept>

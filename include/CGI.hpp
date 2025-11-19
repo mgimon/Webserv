@@ -1,8 +1,11 @@
 #pragma once
 
+#pragma once
+
 #include <sys/types.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <string>
 
 #include "../include/initServer.hpp"
 #include "../include/ServerConfig.hpp"
