@@ -3,11 +3,10 @@
 
 static void cleanReadPipe(int pipe_read_fd, t_server_context &server_context)
 {
-	t_fd_data *pipe_read_data = server_context.map_fds.find(pipe_read_fd)->second;
+	t_fd_data pipe_read_data = server_context.map_fds.find(pipe_read_fd)->second;
 	epoll_ctl(server_context.epoll_fd, EPOLL_CTL_DEL, pipe_read_fd, NULL);
 	close(pipe_read_fd);
-	delete(static_cast<t_CGI_pipe_read*>(pipe_read_data->data));
-	delete(pipe_read_data);
+	delete(static_cast<t_CGI_pipe_read*>(pipe_read_data.data));
 	server_context.map_fds.erase(pipe_read_fd);
 }
 
@@ -16,17 +15,15 @@ static int addPipeWrite(int pipe_write_fd, int pipe_read_fd, pid_t pid, std::str
 {
 	epoll_event ev;
 	s_CGI_pipe_write *s_pipe_write = NULL;
-	t_fd_data *pipe_write_data = NULL;
 	bool epoll_inserted = false;
 	bool data_inserted = false;
 
 	try
 	{
 		s_pipe_write = new s_CGI_pipe_write(pipe_write_fd, request_body, content_length, pid, client_socket);
-		pipe_write_data = new t_fd_data(s_pipe_write, CGI_PIPE_WRITE);
+		t_fd_data pipe_write_data = {s_pipe_write, CGI_PIPE_WRITE};
 		
 		ev.events = EPOLLOUT | EPOLLHUP | EPOLLERR;
-		ev.data.ptr = pipe_write_data;
 		ev.data.fd = pipe_write_fd;
 		if (epoll_ctl(server_context.epoll_fd, EPOLL_CTL_ADD, pipe_write_fd, &ev) == -1)
 			throw std::runtime_error(strerror(errno));
@@ -47,8 +44,6 @@ static int addPipeWrite(int pipe_write_fd, int pipe_read_fd, pid_t pid, std::str
 		close(pipe_write_fd);
 		if (s_pipe_write != NULL)
 			delete(s_pipe_write);
-		if (pipe_write_data != NULL)
-			delete(pipe_write_data);
 		if (data_inserted)	
 			server_context.map_fds.erase(pipe_write_fd);
 		kill(pid, SIGKILL); // Cerramos el proceso hijo
@@ -61,15 +56,13 @@ static int addPipeRead(int pipe_write_fd, int pipe_read_fd, pid_t pid, t_client_
 {
 	epoll_event ev;
 	s_CGI_pipe_read *s_pipe_read = NULL;
-	t_fd_data *pipe_read_data = NULL;
 	bool epoll_inserted = false;
 
 	try
 	{
 		s_pipe_read = new s_CGI_pipe_read(pipe_read_fd, pid, client_socket);
-		pipe_read_data = new t_fd_data(s_pipe_read, CGI_PIPE_READ);
+		t_fd_data pipe_read_data = {s_pipe_read, CGI_PIPE_READ};
 		ev.events = EPOLLIN | EPOLLHUP | EPOLLERR;
-		ev.data.ptr = pipe_read_data;
 		ev.data.fd = pipe_read_fd;
 		if (epoll_ctl(server_context.epoll_fd, EPOLL_CTL_ADD, pipe_read_fd, &ev) == -1)
 			throw std::runtime_error(strerror(errno));
@@ -86,8 +79,6 @@ static int addPipeRead(int pipe_write_fd, int pipe_read_fd, pid_t pid, t_client_
 		close(pipe_read_fd);
 		if (s_pipe_read != NULL)
 			delete(s_pipe_read);
-		if (pipe_read_data != NULL)
-			delete(pipe_read_data);
 		kill(pid, SIGKILL); //Cerramos el proceso hijo
 		return (0); // Devolver un 500 error al cliente
 	}
@@ -151,7 +142,7 @@ int startCGI(const std::string &cgi, const std::string &nameScript, const std::s
 	int pipe_write[2]; // Padre escribe, hijo lee
 	int pipe_read[2]; // Padre lee, hijo escribe
 
-	std::string complete_route = pathScript + "/" + nameScript;
+	std::string complete_route = "." + pathScript + nameScript;
 	if (access(cgi.c_str(), X_OK) == -1 || access(complete_route.c_str(), R_OK | X_OK) == -1)
 		return(-1); // Devolver un 403 error al cliente
 	if (configPipes(pipe_write, pipe_read) == 0)

@@ -18,6 +18,19 @@ enum FDType
 	CGI_PIPE_READ
 };
 
+typedef struct s_client_socket
+{
+	int				socket_fd;
+	ServerConfig&	server;
+	std::string		readBuffer;
+
+	//Constructor
+	s_client_socket(int fd, ServerConfig& srv) : 
+        socket_fd(fd), 
+        server(srv), // Inicializa la referencia correctamente
+        readBuffer("") {}
+}	t_client_socket;
+
 typedef struct s_CGI_pipe_read
 {
 	int fd;
@@ -49,19 +62,6 @@ typedef struct s_CGI_pipe_write
 		client_socket(conexion_socket) {}
 }	t_CGI_pipe_write;
 
-typedef struct s_client_socket
-{
-	int				socket_fd;
-	ServerConfig&	server;
-	std::string		readBuffer;
-
-	//Constructor
-	s_client_socket(int fd, ServerConfig& srv) : 
-        socket_fd(fd), 
-        server(srv), // Inicializa la referencia correctamente
-        readBuffer("") {}
-}	t_client_socket;
-
 typedef struct s_listen_socket
 {
 	int				socket_fd;
@@ -78,9 +78,6 @@ typedef struct s_fd_data
 	void*	data;
 	FDType 	type;
 
-	s_fd_data(void* ptr, FDType tp) : 
-        data(ptr), 
-        type(tp) {}
 }	t_fd_data;
 
 typedef struct s_pid_context 
@@ -95,7 +92,7 @@ typedef struct s_pid_context
 typedef struct s_server_context 
 {
     int epoll_fd;
-    std::map<int, t_fd_data *> &map_fds;
+    std::map<int, t_fd_data> &map_fds;
     std::map<pid_t, t_pid_context> &map_pids;
 }	t_server_context;
 

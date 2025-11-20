@@ -702,7 +702,7 @@ bool isCompleteRequest(const std::string& str)
     return (false);
 }
 
-void readFromSocket(t_fd_data *fd_data, t_client_socket *client_socket, int epoll_fd, std::map<int, t_fd_data *> &map_fds)
+void readFromSocket(t_client_socket *client_socket, int epoll_fd, std::map<int, t_fd_data> &map_fds)
 {
     char buf[4096];
     ssize_t bytesRead = recv(client_socket->socket_fd, buf, sizeof(buf), 0);
@@ -714,7 +714,6 @@ void readFromSocket(t_fd_data *fd_data, t_client_socket *client_socket, int epol
         close(client_socket->socket_fd);
         map_fds.erase(client_socket->socket_fd);
         delete(client_socket);
-        delete(fd_data);
         return;
     }
     // leido -> append
@@ -874,26 +873,25 @@ int respond(int client_fd, const HttpRequest &http_request, ServerConfig &server
     }
 }
 
-void removeConnection(t_client_socket *client_socket, t_fd_data *fd_data, int epoll_fd, std::map<int, t_fd_data *> &map_fds)
+void removeConnection(t_client_socket *client_socket, int epoll_fd, std::map<int, t_fd_data> &map_fds)
 {
     epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_socket->socket_fd, NULL);
     close(client_socket->socket_fd);
     map_fds.erase(client_socket->socket_fd);
     delete(client_socket);
-    delete(fd_data);
 }
 
-void handleClientSocket(t_fd_data *fd_data, t_server_context &server_context, epoll_event (&events)[MAX_EVENTS], int i)
+void handleClientSocket(t_fd_data &fd_data, t_server_context &server_context, epoll_event (&events)[MAX_EVENTS], int i)
 {
-    t_client_socket *client_socket = static_cast<t_client_socket *>(fd_data->data);
+    t_client_socket *client_socket = static_cast<t_client_socket *>(fd_data.data);
     client_socket->server.print();
 
     if (events[i].events & (EPOLLHUP | EPOLLERR))
     {
-        removeConnection(client_socket, fd_data, server_context.epoll_fd, server_context.map_fds);
+        removeConnection(client_socket, server_context.epoll_fd, server_context.map_fds);
         return ;
     }
-    readFromSocket(fd_data, client_socket, server_context.epoll_fd, server_context.map_fds);
+    readFromSocket(client_socket, server_context.epoll_fd, server_context.map_fds);
     if (isCompleteRequest(client_socket->readBuffer))
     {
         HttpRequest http_request(client_socket->readBuffer);
@@ -907,7 +905,7 @@ void handleClientSocket(t_fd_data *fd_data, t_server_context &server_context, ep
         */
 
         if (respond(client_socket->socket_fd, http_request, client_socket->server) == -1) // Client requests Connection:close, or Error
-            removeConnection(client_socket, fd_data, server_context.epoll_fd, server_context.map_fds);
+            removeConnection(client_socket, server_context.epoll_fd, server_context.map_fds);
         else
             client_socket->readBuffer.clear();
     }

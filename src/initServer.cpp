@@ -80,21 +80,19 @@ static int createListenSocket(t_listen listen_conf)
 	return(socket_fd);
 }
 
-static void addListenSocket(int epoll_fd, int socket_fd, ServerConfig &server, std::map<int, t_fd_data*> &map_fds)
+static void addListenSocket(int epoll_fd, int socket_fd, ServerConfig &server, std::map<int, t_fd_data> &map_fds)
 {
 	epoll_event ev;
 	t_listen_socket *socket = NULL;
-	t_fd_data *fd_data = NULL;
 	bool epoll_inserted = false;
 
 	try
 	{
 		socket = new t_listen_socket(socket_fd, server);
-		fd_data = new t_fd_data(socket, LISTEN_SOCKET);
+		t_fd_data fd_data = {socket, LISTEN_SOCKET};
 		// NOTA: MIRAR POSIBLE IMPLEMENTACION DE edge-triggered epoll(EPOLLET), posible mejora de erendimiento
 		// Añadimos el socket al epoll
 		ev.events = EPOLLIN; // Para que epoll nos notifique cuando se intente leer del fd (aceptar una conexion cuenta como leer)
-		ev.data.ptr = fd_data;
 		ev.data.fd = socket_fd;
 		if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, socket_fd, &ev) == -1)
 			throw std::runtime_error(strerror(errno));
@@ -108,13 +106,11 @@ static void addListenSocket(int epoll_fd, int socket_fd, ServerConfig &server, s
 		close(socket_fd);
 		if (socket != NULL)
 			delete(socket);
-		if (fd_data != NULL)
-			delete(fd_data);
 		throw ; // Relanza la exception capturada
 	}
 }
 
-static void loadListenSockets(std::vector<ServerConfig> &serverList, int epoll_fd, std::map<int, t_fd_data*> &map_fds)
+static void loadListenSockets(std::vector<ServerConfig> &serverList, int epoll_fd, std::map<int, t_fd_data> &map_fds)
 {
 	for (std::vector<ServerConfig>::iterator serv_it = serverList.begin(); serv_it != serverList.end(); ++serv_it)
 	{
@@ -135,20 +131,18 @@ static void loadListenSockets(std::vector<ServerConfig> &serverList, int epoll_f
 	}
 }
 
-static void addClientSocket(int epoll_fd, int client_fd, ServerConfig &server, std::map<int, t_fd_data*> &map_fds)
+static void addClientSocket(int epoll_fd, int client_fd, ServerConfig &server, std::map<int, t_fd_data> &map_fds)
 {
 	epoll_event ev;
 	t_client_socket *client_socket = NULL;
-	t_fd_data *fd_data = NULL;
 	bool epoll_inserted = false;
 
 	try
 	{
 		client_socket = new t_client_socket(client_fd, server);
-		fd_data = new t_fd_data(client_socket, CLIENT_SOCKET);
+		t_fd_data fd_data = {client_socket, CLIENT_SOCKET};
 		// Añadimos el socket al epoll
 		ev.events = EPOLLIN | EPOLLHUP | EPOLLERR;
-		ev.data.ptr = fd_data;
 		ev.data.fd = client_fd;
 		// Si falla al meterse en el epoll lanzamos una exception y en el catch liberamos la memoria
 		if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client_fd, &ev) == -1)
@@ -165,12 +159,10 @@ static void addClientSocket(int epoll_fd, int client_fd, ServerConfig &server, s
 		close(client_fd);
 		if (client_socket != NULL)
 			delete(client_socket);
-		if (fd_data != NULL)
-			delete(fd_data);
 	}
 }
 
-static void createClientSocket(t_listen_socket *listen_socket, int epoll_fd, std::map<int, t_fd_data *> &map_fds)
+static void createClientSocket(t_listen_socket *listen_socket, int epoll_fd, std::map<int, t_fd_data> &map_fds)
 {
 	sockaddr client_addr;
 	socklen_t client_addr_size = sizeof(client_addr);
@@ -198,7 +190,7 @@ static void createClientSocket(t_listen_socket *listen_socket, int epoll_fd, std
 
 		if (!UtilsCC::addFlagsFd(client_fd))
 		{
-			std::cerr << YELLOW << "WARNING: Error setting flags to client fd : " << strerror(errno) << YELLOW << std::endl;
+			std::cerr << YELLOW << "WARNING: Error setting flags to client fd : " << strerror(errno) << RESET << std::endl;
 			close(client_fd);
 			continue;
 		}
@@ -208,7 +200,7 @@ static void createClientSocket(t_listen_socket *listen_socket, int epoll_fd, std
 
 void initServer(std::vector<ServerConfig> &serverList)
 {
-	std::map<int, t_fd_data *> map_fds;
+	std::map<int, t_fd_data> map_fds;
 	std::map<pid_t, t_pid_context> map_pids;
 	//NOTA: HACER EPOLL_FD FD_CLOEXEC
 	int epoll_fd = epoll_create(1);
@@ -255,18 +247,19 @@ void initServer(std::vector<ServerConfig> &serverList)
 		}
 		for (int i = 0; i < n_events; i++)
 		{
+			std::map<int, t_fd_data>::iterator it = map_fds.find(events[i].data.fd);
 			//Comprobamos si un evento anterior ha liberado data de este evento
-			if (map_fds.find(events[i].data.fd) == map_fds.end())
+			if (it == map_fds.end())
 				continue;
 			
-			t_fd_data *fd_data = static_cast<t_fd_data *>(events[i].data.ptr);
-			if (fd_data->type == LISTEN_SOCKET)
-				createClientSocket(static_cast<t_listen_socket *>(fd_data->data), epoll_fd, map_fds);
-			else if (fd_data->type == CLIENT_SOCKET)
+			t_fd_data fd_data = it->second;
+			if (fd_data.type == LISTEN_SOCKET)
+				createClientSocket(static_cast<t_listen_socket *>(fd_data.data), epoll_fd, map_fds);
+			else if (fd_data.type == CLIENT_SOCKET)
 				utils::handleClientSocket(fd_data, server_context, events, i);
-			else if (fd_data->type == CGI_PIPE_WRITE)
+			else if (fd_data.type == CGI_PIPE_WRITE)
 			{
-				t_CGI_pipe_write *s_pipe_write = static_cast<t_CGI_pipe_write *>(fd_data->data);
+				t_CGI_pipe_write *s_pipe_write = static_cast<t_CGI_pipe_write *>(fd_data.data);
 				std::map<pid_t, t_pid_context>::iterator pids_it = map_pids.find(s_pipe_write->pid);
 
 				//Calcular cuanto vamos a enviar
@@ -294,16 +287,15 @@ void initServer(std::vector<ServerConfig> &serverList)
 					close(s_pipe_write->fd);
 					map_fds.erase(s_pipe_write->fd);
 					delete(s_pipe_write);
-					delete(fd_data);
 				}
 			}
-			else if (fd_data->type == CGI_PIPE_READ)
+			else if (fd_data.type == CGI_PIPE_READ)
 			{
 
 			}
 		}
 	}
 	UtilsCC::closeServer(epoll_fd, map_fds, map_pids);
-	std::cout << GREEN << std::endl << "Server closed" << GREEN << std::endl;
+	std::cout << GREEN << std::endl << "Server closed" << RESET << std::endl;
 }
 
