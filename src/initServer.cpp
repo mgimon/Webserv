@@ -76,7 +76,10 @@ static int createListenSocket(t_listen listen_conf)
 		throw std::runtime_error(strerror(errno));
 	
 	if (listen(socket_fd, listen_conf.backlog) == -1)
+	{
+		close(socket_fd);
 		throw std::runtime_error(strerror(errno));
+	}
 	return(socket_fd);
 }
 
