@@ -1,9 +1,20 @@
 #include "../include/CGI.hpp"
 
-int addPipeWrite(int pipe_write_fd, int pipe_read_fd, pid_t pid, std::string request_body,
+
+static void cleanReadPipe(int pipe_read_fd, t_server_context &server_context)
+{
+	t_fd_data *pipe_read_data = server_context.map_fds.find(pipe_read_fd)->second;
+	epoll_ctl(server_context.epoll_fd, EPOLL_CTL_DEL, pipe_read_fd, NULL);
+	close(pipe_read_fd);
+	delete(static_cast<t_CGI_pipe_read*>(pipe_read_data->data));
+	delete(pipe_read_data);
+	server_context.map_fds.erase(pipe_read_fd);
+}
+
+static int addPipeWrite(int pipe_write_fd, int pipe_read_fd, pid_t pid, std::string request_body,
 			int content_length, t_client_socket *client_socket, t_server_context &server_context)
 {
-	epoll_event ev_pipe_write;
+	epoll_event ev;
 	s_CGI_pipe_write *s_pipe_write = NULL;
 	t_fd_data *pipe_write_data = NULL;
 	bool epoll_inserted = false;
@@ -11,12 +22,13 @@ int addPipeWrite(int pipe_write_fd, int pipe_read_fd, pid_t pid, std::string req
 
 	try
 	{
-		s_pipe_write = new s_CGI_pipe_write(pipe_write_fd, pipe_read_fd, request_body, content_length, pid, client_socket);
+		s_pipe_write = new s_CGI_pipe_write(pipe_write_fd, request_body, content_length, pid, client_socket);
 		pipe_write_data = new t_fd_data(s_pipe_write, CGI_PIPE_WRITE);
 		
-		ev_pipe_write.events = EPOLLOUT | EPOLLHUP | EPOLLERR;
-		ev_pipe_write.data.ptr = pipe_write_data;
-		if (epoll_ctl(server_context.epoll_fd, EPOLL_CTL_ADD, pipe_write_fd, &ev_pipe_write) == -1)
+		ev.events = EPOLLOUT | EPOLLHUP | EPOLLERR;
+		ev.data.ptr = pipe_write_data;
+		ev.data.fd = pipe_write_fd;
+		if (epoll_ctl(server_context.epoll_fd, EPOLL_CTL_ADD, pipe_write_fd, &ev) == -1)
 			throw std::runtime_error(strerror(errno));
 		epoll_inserted = true;
 		data_inserted = server_context.map_fds.insert(std::make_pair(pipe_write_fd, pipe_write_data)).second;
@@ -28,12 +40,7 @@ int addPipeWrite(int pipe_write_fd, int pipe_read_fd, pid_t pid, std::string req
 	{
 		std::cerr << RED << e.what() << RESET << std::endl;
 		//Liberamos el read pipe
-		t_fd_data *pipe_read_data = server_context.map_fds.at(pipe_read_fd);
-		epoll_ctl(server_context.epoll_fd, EPOLL_CTL_DEL, pipe_read_fd, NULL);
-		close(pipe_read_fd);
-		delete(static_cast<t_CGI_pipe_read*>(pipe_read_data->data));
-		delete(pipe_read_data);
-		server_context.map_fds.erase(pipe_read_fd);
+		cleanReadPipe(pipe_read_fd, server_context);
 		//Liberamos el write pipe
 		if (epoll_inserted)
 			epoll_ctl(server_context.epoll_fd, EPOLL_CTL_DEL, pipe_read_fd, NULL);
@@ -50,9 +57,9 @@ int addPipeWrite(int pipe_write_fd, int pipe_read_fd, pid_t pid, std::string req
 	return(1);
 }
 
-int addPipeRead(int pipe_write_fd, int pipe_read_fd, pid_t pid, t_client_socket *client_socket, t_server_context &server_context)
+static int addPipeRead(int pipe_write_fd, int pipe_read_fd, pid_t pid, t_client_socket *client_socket, t_server_context &server_context)
 {
-	epoll_event ev_pipe_read;
+	epoll_event ev;
 	s_CGI_pipe_read *s_pipe_read = NULL;
 	t_fd_data *pipe_read_data = NULL;
 	bool epoll_inserted = false;
@@ -61,9 +68,10 @@ int addPipeRead(int pipe_write_fd, int pipe_read_fd, pid_t pid, t_client_socket 
 	{
 		s_pipe_read = new s_CGI_pipe_read(pipe_read_fd, pid, client_socket);
 		pipe_read_data = new t_fd_data(s_pipe_read, CGI_PIPE_READ);
-		ev_pipe_read.events = EPOLLIN | EPOLLHUP | EPOLLERR;
-		ev_pipe_read.data.ptr = pipe_read_data;
-		if (epoll_ctl(server_context.epoll_fd, EPOLL_CTL_ADD, pipe_read_fd, &ev_pipe_read) == -1)
+		ev.events = EPOLLIN | EPOLLHUP | EPOLLERR;
+		ev.data.ptr = pipe_read_data;
+		ev.data.fd = pipe_read_fd;
+		if (epoll_ctl(server_context.epoll_fd, EPOLL_CTL_ADD, pipe_read_fd, &ev) == -1)
 			throw std::runtime_error(strerror(errno));
 		epoll_inserted = true;
 		server_context.map_fds.insert(std::make_pair(pipe_read_fd, pipe_read_data));
@@ -86,7 +94,7 @@ int addPipeRead(int pipe_write_fd, int pipe_read_fd, pid_t pid, t_client_socket 
 	return(1);
 }
 
-void execCGI(int *pipe_write, int *pipe_read, const std::string &cgi, const std::string &nameScript, const std::string &pathScript, char **env)
+static void execCGI(int *pipe_write, int *pipe_read, const std::string &cgi, const std::string &nameScript, const std::string &pathScript, char **env)
 {	
 	char *argv[3];
 
@@ -113,13 +121,13 @@ void execCGI(int *pipe_write, int *pipe_read, const std::string &cgi, const std:
 	while(1);
 }
 
-void closePipe(int *pipe)
+static void closePipe(int *pipe)
 {
 	close(pipe[0]);
 	close(pipe[1]);
 }
 
-int configPipes(int *pipe_write, int *pipe_read)
+static int configPipes(int *pipe_write, int *pipe_read)
 {
 	if (pipe(pipe_write) == -1)
 		return (0); 
@@ -182,12 +190,7 @@ int startCGI(const std::string &cgi, const std::string &nameScript, const std::s
 		{
 			std::cerr << RED << e.what() << RESET << std::endl;
 			//Liberamos el read pipe
-			t_fd_data *pipe_read_data = server_context.map_fds.at(pipe_read[0]);
-			epoll_ctl(server_context.epoll_fd, EPOLL_CTL_DEL, pipe_read[0], NULL);
-			close(pipe_read[0]);
-			delete(static_cast<t_CGI_pipe_read*>(pipe_read_data->data));
-			delete(pipe_read_data);
-			server_context.map_fds.erase(pipe_read[0]);
+			cleanReadPipe(pipe_read[0], server_context);
 			kill(pid, SIGKILL); // Cerramos el proceso hijo
 			return (0); // Devolver un 500 error al cliente
 		}

@@ -38,10 +38,7 @@ void UtilsCC::closeServer(int epoll_fd, std::map<int, t_fd_data*> &map_fds)
 		t_fd_data *fd_data = it->second;
 
 		close(fd);
-		if (fd_data->type == LISTEN_SOCKET)
-			delete(static_cast<t_listen_socket*>(fd_data->data));
-		else if(fd_data->type == CLIENT_SOCKET)
-			delete(static_cast<t_client_socket*>(fd_data->data));
+		delete(static_cast<t_listen_socket*>(fd_data->data));
 		delete(fd_data);
 		std::map<int, t_fd_data*>::iterator aux = it;
 		++it;
@@ -49,7 +46,7 @@ void UtilsCC::closeServer(int epoll_fd, std::map<int, t_fd_data*> &map_fds)
 	}
 }
 
-// Version para cerrar el server por signal
+// Version para cerrar el server por signal 
 void cleanCGI(std::map<pid_t, t_pid_context>::iterator &pid_it, 
 			  std::map<int, t_fd_data *> &map_fds)
 {
