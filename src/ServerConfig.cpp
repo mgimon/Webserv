@@ -2,11 +2,11 @@
 
 
 /** CANONICAL **/
-ServerConfig::ServerConfig() : buffer_size_(4096), client_maxbodysize_(1000), document_root_("./"), default_file_(""), autoindex_(true) { addDefaultErrorPages(); }
-ServerConfig::ServerConfig(int buffer_size, const std::string& document_root) : buffer_size_(buffer_size), client_maxbodysize_(10485760), document_root_(document_root), default_file_(""), autoindex_(true) { addDefaultErrorPages(); }
-ServerConfig::ServerConfig(const ServerConfig& other) : buffer_size_(other.buffer_size_), client_maxbodysize_(other.client_maxbodysize_), document_root_(other.document_root_), default_file_(other.default_file_), autoindex_(other.autoindex_), locations_(other.locations_), listens_(other.listens_), defaulterrorpages_(other.defaulterrorpages_), index_files_(other.index_files_) {}
+ServerConfig::ServerConfig() : buffer_size_(4096), client_maxbodysize_(1000), document_root_("./"), default_file_(""), autoindex_(true) { addDefaultErrorPages(); createServerName(); }
+ServerConfig::ServerConfig(int buffer_size, const std::string& document_root) : buffer_size_(buffer_size), client_maxbodysize_(10485760), document_root_(document_root), default_file_(""), autoindex_(true) { addDefaultErrorPages(); createServerName(); }
+ServerConfig::ServerConfig(const ServerConfig& other) : buffer_size_(other.buffer_size_), client_maxbodysize_(other.client_maxbodysize_), document_root_(other.document_root_), default_file_(other.default_file_), autoindex_(other.autoindex_), locations_(other.locations_), listens_(other.listens_), defaulterrorpages_(other.defaulterrorpages_), server_name_(other.server_name_), index_files_(other.index_files_) {}
 ServerConfig& ServerConfig::operator=(const ServerConfig& other) {
-    if (this != &other) {buffer_size_ = other.buffer_size_; client_maxbodysize_ = other.client_maxbodysize_; document_root_ = other.document_root_; default_file_ = other.default_file_; autoindex_ = other.autoindex_; locations_ = other.locations_; listens_ = other.listens_; defaulterrorpages_ = other.defaulterrorpages_; index_files_ = other.index_files_; }
+    if (this != &other) {buffer_size_ = other.buffer_size_; client_maxbodysize_ = other.client_maxbodysize_; document_root_ = other.document_root_; default_file_ = other.default_file_; autoindex_ = other.autoindex_; locations_ = other.locations_; listens_ = other.listens_; defaulterrorpages_ = other.defaulterrorpages_; server_name_ = other.server_name_; index_files_ = other.index_files_; }
     return *this;
 }
 ServerConfig::~ServerConfig() {}
@@ -30,6 +30,25 @@ void ServerConfig::setAutoindex(bool autoindex) { autoindex_ = autoindex; }
 void ServerConfig::setLocations(const std::vector<LocationConfig>& locations) { locations_ = locations; }
 void ServerConfig::setClientMaxBodySize(size_t client_maxbodysize) { client_maxbodysize_ = client_maxbodysize; }
 void ServerConfig::addListen(t_listen listen) { listens_.push_back(listen); }
+
+void ServerConfig::createServerName()
+{
+    srand(static_cast<unsigned int>(time(NULL)));
+    const char chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    const int length = 9;
+    std::string name;
+    for (int i = 0; i < length; ++i)
+    {
+        if (i == 0)
+            name = "S";
+        else if (i == 1)
+            name += '-';
+        else
+            name += chars[rand() % (sizeof(chars) - 1)];
+    }
+
+    this->server_name_ = name;
+}
 
 std::string ServerConfig::getErrorPageName(int errcode) const
 {

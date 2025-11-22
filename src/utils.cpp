@@ -57,7 +57,7 @@ bool isFile(std::string &path)
 }
 
 // evals "/" as true
-int isLocation(ServerConfig &serverOne, std::string &path)
+int isLocation(ServerConfig &serverOne, const std::string &path)
 {
     std::vector<LocationConfig> locations = serverOne.getLocations();
     std::string locationPath;
@@ -848,6 +848,22 @@ bool hasWXPermission(const std::string &path)
         return (false);
 }
 
+std::string trimQueryString(const std::string &s)
+{
+    std::string::size_type pos = s.find('?');
+    if (pos == std::string::npos)
+        return (s);
+    return (s.substr(0, pos));
+}
+
+std::string extractQueryString(const std::string &s)
+{
+    std::string::size_type pos = s.find('?');
+    if (pos == std::string::npos)
+        return ("");
+    return (s.substr(pos + 1));
+}
+
 char **allocateCgiEnv(const LocationConfig *requestLocation, const HttpRequest &http_request, ServerConfig &serverOne)
 {
     (void)requestLocation;
@@ -859,14 +875,17 @@ char **allocateCgiEnv(const LocationConfig *requestLocation, const HttpRequest &
 
     env_var = "REQUEST_METHOD=" + http_request.getMethod();
     env[0] = strdup(env_var.c_str());
-    env_var = "QUERY_STRING=" + std::string(""); 
+    env_var = "QUERY_STRING=" + extractQueryString(http_request.getPath()); 
     env[1] = strdup(env_var.c_str());
     oss << http_request.getBody().size();
     env_var = "CONTENT_LENGTH=" + oss.str(); 
     env[2] = strdup(env_var.c_str());
     env_var = "CONTENT_TYPE=" + http_request.findHeader(http_request.getHeaders(), "Content-Type"); 
     env[3] = strdup(env_var.c_str());
-    env_var = "SCRIPT_NAME=" + http_request.getPath(); // si es root no aparece /var/www/html ?
+    if (isLocation(serverOne, http_request.getPath()) == 1)
+        env_var = "SCRIPT_NAME=" +  trimQueryString(http_request.getPath());
+    else
+        env_var = "SCRIPT_NAME=" +  trimQueryString(serverOne.getDocumentRoot() + http_request.getPath());
     env[4] = strdup(env_var.c_str());
     env_var = "PATH_INFO=" + std::string(""); 
     env[5] = strdup(env_var.c_str());
@@ -896,26 +915,40 @@ char **allocateCgiEnv(const LocationConfig *requestLocation, const HttpRequest &
 
 int respondCGI(t_server_context &server_context, t_client_socket *client_socket, const LocationConfig *requestLocation, int client_fd, const HttpRequest &http_request, HttpResponse &http_response, ServerConfig &serverOne)
 {
-    //if (!access http_request.getPath())
-        //-> 403
-    //else
-        //-> creamos el objeto CGI Handler y llamamos a startCGI
+    std::string checkPath;
+    int keep_alive = checkConnectionClose(http_request, http_response);
+
+    // trim querystring
+    if (isLocation(serverOne, http_request.getPath()) == 1)
+        checkPath = trimQueryString("." + http_request.getPath());
+    else
+        checkPath = trimQueryString ("." + serverOne.getDocumentRoot() + http_request.getPath());
+    if (access(checkPath.c_str(), F_OK) != 0)
+    {
+        http_response.setError(getErrorPath(serverOne, 403), 403, "Forbidden");
+        if (http_response.respondInClient(client_fd) == -1)
+            return (-1);
+    }
 
     CGI::Handler CgiHandler;
 
     CgiHandler.setEnv(allocateCgiEnv(requestLocation, http_request, serverOne)); // recordar liberar
     CgiHandler.setCgi(requestLocation->getPythonCGIExecutable().c_str());
     CgiHandler.setNameScript(getCgiScriptNameFromPath(http_request.getPath()));
-    CgiHandler.setPathScript(getCgiScriptPathFromPath(http_request.getPath()));
+    if (isLocation(serverOne, http_request.getPath()) == 1)
+        CgiHandler.setPathScript(getCgiScriptPathFromPath(http_request.getPath()));
+    else
+        CgiHandler.setPathScript(getCgiScriptPathFromPath(serverOne.getDocumentRoot() + http_request.getPath()));
     CgiHandler.setRequest(http_request.getMethod());
     CgiHandler.setClientSocket(client_socket);
     CgiHandler.setServerContext(&server_context);
 
     // meter un respond cualquiera y printear con CgiHandler.printAttributes() tras request de CGI;
     CgiHandler.printAttributes();
-    http_response.setError(getErrorPath(serverOne, 100), 100, "Custom");
-    http_response.respondInClient(client_fd);
-    return (-1);
+    http_response.setError(getErrorPath(serverOne, 500), 500, "Custom");
+    if (http_response.respondInClient(client_fd) == -1)
+        return (-1);
+    return (keep_alive);
     // CGI::startCGI();
 }
 
@@ -939,8 +972,17 @@ int respond(t_server_context &server_context, t_client_socket *client_socket, in
     // serve REDIRECT or CGI
     if (serveRedirect(http_request, serverOne, requestLocation, client_fd, http_response) == 1)
         return (0);
-    if (http_request.getPath().find(".py") != std::string::npos && !locationMatchforRequest(http_request.getPath(), serverOne.getLocations())->getPythonCGIExecutable().empty())
+    if (http_request.getPath().find(".py") != std::string::npos)
+    {
+        if (!locationMatchforRequest(http_request.getPath(), serverOne.getLocations())->getPythonCGIExecutable().empty())
+        {
+            http_response.setError(getErrorPath(serverOne, 403), 403, "Forbidden");
+            if (http_response.respondInClient(client_fd) == -1)
+                return (-1);
+            return (keep_alive);
+        }
         return (respondCGI(server_context, client_socket, requestLocation, client_fd, http_request, http_response, serverOne));
+    }
 
     // serve NORMAL REQUEST
     if (method == "GET")

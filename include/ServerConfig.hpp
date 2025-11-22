@@ -46,6 +46,7 @@ class ServerConfig {
 		ServerConfig& operator=(const ServerConfig& other);
 		~ServerConfig();
 
+		void createServerName();
 		int getBufferSize() const;
 		std::string getDocumentRoot() const;
 		std::string getDefaultFile() const;

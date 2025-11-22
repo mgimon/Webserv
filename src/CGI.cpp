@@ -26,16 +26,39 @@ void Handler::setClientSocket(t_client_socket *client_socket) { client_socket_ =
 
 void Handler::printAttributes() const
 {
-	std::cout << PINK
-		<< "Printing CGI Handler attributes: " << std::endl
-		<< "cgi_: " << (cgi_ ? cgi_ : "NULL") << std::endl
-		<< "nameScript_: " << nameScript_ << std::endl
-		<< "pathScript_: " << pathScript_ << std::endl
-		<< "env_: " << (env_ ? *env_ : "NULL") << std::endl
-		<< "request_: " << request_ << std::endl
-		<< "server_context_: " << server_context_ << std::endl
-		<< "client_socket_: " << client_socket_ << std::endl
-	<< RESET << std::endl;
+    std::cout << PINK;
+    std::cout << "=== CGI Handler Attributes ===" << std::endl;
+    std::cout << "CGI: ";
+    if (cgi_)
+        std::cout << cgi_ << std::endl;
+    else
+        std::cout << "(null)" << std::endl;
+    std::cout << "Name Script: "
+              << (nameScript_.empty() ? "(empty)" : nameScript_) 
+              << std::endl;
+    std::cout << "Path Script: "
+              << (pathScript_.empty() ? "(empty)" : pathScript_) 
+              << std::endl;
+    std::cout << "Environment Variables: ";
+    if (env_)
+	{
+        std::cout << std::endl;
+        for (int i = 0; env_[i]; ++i)
+            std::cout << "  [" << i << "]: " << env_[i] << std::endl;
+    }
+	else
+        std::cout << "(null)" << std::endl;
+    std::cout << "Request: "
+              << (request_.empty() ? "(empty)" : request_)
+              << std::endl;
+    std::cout << "Server Context: " << server_context_;
+    if (!server_context_) std::cout << " (null)";
+    std::cout << std::endl;
+    std::cout << "Client Socket: " << client_socket_;
+    if (!client_socket_) std::cout << " (null)";
+    std::cout << std::endl;
+    std::cout << "===============================" << std::endl;
+    std::cout << RESET << std::endl;
 }
 
 int addPipeWrite(int pipe_write_fd, int pipe_read_fd, pid_t pid, t_client_socket *client_socket, t_server_context &server_context)
