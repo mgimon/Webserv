@@ -8,6 +8,7 @@
 #include <string>
 
 #include "../include/initServer.hpp"
+#include "../include/utils.hpp"
 #include "../include/ServerConfig.hpp"
 #include <string>
 
@@ -27,6 +28,7 @@ namespace CGI
 			std::string request_;
 			t_server_context *server_context_;
 			t_client_socket *client_socket_;
+			bool chunked_;
 		public:
 			// Canonical
 			Handler();
@@ -42,6 +44,7 @@ namespace CGI
 			std::string& getRequest() const;
 			t_server_context* getServerContext() const;
 			t_client_socket* getClientSocket() const;
+			bool isChunked() const;
 
 			// Setters
 			void setCgi(const char* cgi);
@@ -51,6 +54,7 @@ namespace CGI
 			void setRequest(const std::string &request);
 			void setServerContext(t_server_context *server_context);
 			void setClientSocket(t_client_socket *client_socket);
+			void setChunked(const std::map<std::string, std::string> &headers);
 
 			// Methods
 			void printAttributes() const;

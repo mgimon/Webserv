@@ -40,6 +40,7 @@ namespace utils {
     bool isDirectory(const std::string& path);
     std::string getRedirectMessage(int code);
     bool hasWXPermission(const std::string &path);
+    char toLowerChar(char c);
     std::string getDirectoryName(const std::string &path);
     int checkConnectionClose(const HttpRequest &http_request, HttpResponse &http_response);
     std::string getCgiScriptNameFromPath(const std::string &path);

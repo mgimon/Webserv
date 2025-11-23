@@ -345,6 +345,31 @@ std::string getFormSuccessBody()
     return (html);
 }
 
+std::string getCustomResponse(std::string title, std::string paragraph)
+{
+    std::string html =
+    "<!DOCTYPE html>\n"
+    "<html lang=\"en\">\n"
+    "<head>\n"
+    "    <meta charset=\"UTF-8\" />\n"
+    "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n"
+    "    <title>Form sent</title>\n"
+    "    <link rel=\"stylesheet\" href=\"/styles.css\" />\n"
+    "</head>\n"
+    "<body>\n"
+    "    <header><h1>" + title + "</h1></header>\n"
+    "    <main>\n"
+    "        <div class=\"maindiv_first\">\n"
+    "            <p>" + paragraph + "</p>\n"
+    "        </div>\n"
+    "    </main>\n"
+    "    <footer><p>© 2025 Http Enjoyers</p></footer>\n"
+    "</body>\n"
+    "</html>\n";
+
+    return (html);
+}
+
 bool isUpload(const HttpRequest &http_request)
 {
     std::map<std::string, std::string> headers = http_request.getHeaders();
@@ -848,6 +873,11 @@ bool hasWXPermission(const std::string &path)
         return (false);
 }
 
+char toLowerChar(char c)
+{
+    return static_cast<char>(tolower(static_cast<unsigned char>(c)));
+}
+
 std::string trimQueryString(const std::string &s)
 {
     std::string::size_type pos = s.find('?');
@@ -862,6 +892,15 @@ std::string extractQueryString(const std::string &s)
     if (pos == std::string::npos)
         return ("");
     return (s.substr(pos + 1));
+}
+
+void freeCStr(char **env)
+{
+    if (!env)
+        return;
+    for (int i = 0; env[i] != NULL; ++i)
+        free(env[i]);
+    delete[] env;
 }
 
 char **allocateCgiEnv(const LocationConfig *requestLocation, const HttpRequest &http_request, ServerConfig &serverOne)
@@ -918,14 +957,16 @@ int respondCGI(t_server_context &server_context, t_client_socket *client_socket,
     std::string checkPath;
     int keep_alive = checkConnectionClose(http_request, http_response);
 
-    // trim querystring
     if (isLocation(serverOne, http_request.getPath()) == 1)
         checkPath = trimQueryString("." + http_request.getPath());
     else
-        checkPath = trimQueryString ("." + serverOne.getDocumentRoot() + http_request.getPath());
+        checkPath = trimQueryString (serverOne.getDocumentRoot() + http_request.getPath());
     if (access(checkPath.c_str(), F_OK) != 0)
     {
-        http_response.setError(getErrorPath(serverOne, 403), 403, "Forbidden");
+        if (errno == ENOENT)
+            http_response.setError(getErrorPath(serverOne, 404), 404, "Not Found");
+        else
+            http_response.setError(getErrorPath(serverOne, 403), 403, "Forbidden");
         if (http_response.respondInClient(client_fd) == -1)
             return (-1);
     }
@@ -942,14 +983,14 @@ int respondCGI(t_server_context &server_context, t_client_socket *client_socket,
     CgiHandler.setRequest(http_request.getMethod());
     CgiHandler.setClientSocket(client_socket);
     CgiHandler.setServerContext(&server_context);
-
-    // meter un respond cualquiera y printear con CgiHandler.printAttributes() tras request de CGI;
     CgiHandler.printAttributes();
-    http_response.setError(getErrorPath(serverOne, 500), 500, "Custom");
+
+    http_response.setResponse(200, getCustomResponse("CGI Management", "CGI will be managed here"));
     if (http_response.respondInClient(client_fd) == -1)
         return (-1);
     return (keep_alive);
     // CGI::startCGI();
+    // freeCStr(CgiHandler.getEnv());
 }
 
 int respond(t_server_context &server_context, t_client_socket *client_socket, int client_fd, const HttpRequest &http_request, ServerConfig &serverOne)
@@ -974,7 +1015,7 @@ int respond(t_server_context &server_context, t_client_socket *client_socket, in
         return (0);
     if (http_request.getPath().find(".py") != std::string::npos)
     {
-        if (!locationMatchforRequest(http_request.getPath(), serverOne.getLocations())->getPythonCGIExecutable().empty())
+        if (locationMatchforRequest(http_request.getPath(), serverOne.getLocations())->getPythonCGIExecutable().empty())
         {
             http_response.setError(getErrorPath(serverOne, 403), 403, "Forbidden");
             if (http_response.respondInClient(client_fd) == -1)

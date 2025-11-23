@@ -3,9 +3,9 @@
 namespace CGI
 {
 
-Handler::Handler() : cgi_(NULL), nameScript_(""), pathScript_(""), env_(NULL), request_(), server_context_(), client_socket_(NULL) {}
-Handler::Handler(const Handler& other) : cgi_(other.cgi_), nameScript_(other.nameScript_), pathScript_(other.pathScript_), env_(other.env_), request_(other.request_), server_context_(other.server_context_), client_socket_(other.client_socket_) {}
-Handler& Handler::operator=(const Handler& other) { if (this != &other) { cgi_ = other.cgi_; nameScript_ = other.nameScript_; pathScript_ = other.pathScript_; env_ = other.env_; request_ = other.request_; server_context_ = other.server_context_; client_socket_ = other.client_socket_; } return *this; }
+Handler::Handler() : cgi_(NULL), nameScript_(""), pathScript_(""), env_(NULL), request_(), server_context_(), client_socket_(NULL), chunked_(false) {}
+Handler::Handler(const Handler& other) : cgi_(other.cgi_), nameScript_(other.nameScript_), pathScript_(other.pathScript_), env_(other.env_), request_(other.request_), server_context_(other.server_context_), client_socket_(other.client_socket_), chunked_(other.chunked_) {}
+Handler& Handler::operator=(const Handler& other) { if (this != &other) { cgi_ = other.cgi_; nameScript_ = other.nameScript_; pathScript_ = other.pathScript_; env_ = other.env_; request_ = other.request_; server_context_ = other.server_context_; client_socket_ = other.client_socket_; chunked_ = other.chunked_; } return *this; }
 Handler::~Handler() {}
 
 const char* Handler::getCgi() const { return cgi_; }
@@ -15,6 +15,7 @@ char** Handler::getEnv() const { return env_; }
 std::string& Handler::getRequest() const { return const_cast<std::string&>(request_); }
 t_server_context* Handler::getServerContext() const { return server_context_; }
 t_client_socket* Handler::getClientSocket() const { return client_socket_; }
+bool Handler::isChunked() const { return chunked_; }
 
 void Handler::setCgi(const char* cgi) { cgi_ = cgi; }
 void Handler::setNameScript(const std::string &nameScript) { nameScript_ = nameScript; }
@@ -23,6 +24,24 @@ void Handler::setEnv(char** env) { env_ = env; }
 void Handler::setRequest(const std::string &request) { request_ = request; }
 void Handler::setServerContext(t_server_context *server_context) { server_context_ = server_context; }
 void Handler::setClientSocket(t_client_socket *client_socket) { client_socket_ = client_socket; }
+void Handler::setChunked(const std::map<std::string, std::string> &headers)
+{
+    chunked_ = false;
+    for (std::map<std::string, std::string>::const_iterator it = headers.begin(); it != headers.end(); ++it)
+    {
+        std::string key = it->first;
+        std::string value = it->second;
+
+		std::transform(key.begin(), key.end(), key.begin(), utils::toLowerChar);
+		std::transform(value.begin(), value.end(), value.begin(), utils::toLowerChar);
+
+        if (key == "transfer-encoding" && value.find("chunked") != std::string::npos)
+        {
+            chunked_ = true;
+            break;
+        }
+    }
+}
 
 void Handler::printAttributes() const
 {
@@ -51,12 +70,18 @@ void Handler::printAttributes() const
     std::cout << "Request: "
               << (request_.empty() ? "(empty)" : request_)
               << std::endl;
+
+	std::cout << std::boolalpha;
+    std::cout << "Chunked: " << chunked_ << std::endl;
+    std::cout << std::noboolalpha;
+
     std::cout << "Server Context: " << server_context_;
     if (!server_context_) std::cout << " (null)";
     std::cout << std::endl;
     std::cout << "Client Socket: " << client_socket_;
     if (!client_socket_) std::cout << " (null)";
-    std::cout << std::endl;
+
+	std::cout << std::endl;
     std::cout << "===============================" << std::endl;
     std::cout << RESET << std::endl;
 }

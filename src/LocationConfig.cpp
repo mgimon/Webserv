@@ -51,6 +51,7 @@ void LocationConfig::printLocation() const
         std::cout << std::endl;
         std::cout << "autoindex: " << (autoindex_ ? "on" : "off") << std::endl;
         std::cout << "root_override: " << root_override_ << std::endl;
+		std::cout << "exec_cgi: " << exec_cgi_ << std::endl;
 }
 
 const std::vector<std::string>& LocationConfig::getLocationIndexFiles() const { 
