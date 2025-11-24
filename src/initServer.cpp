@@ -229,7 +229,7 @@ void initServer(std::vector<ServerConfig> &serverList)
 				CGIHandler::writeInPipe(static_cast<t_CGI_pipe_write *>(fd_data.data), events[i].events, server_context);
 			else if (fd_data.type == CGI_PIPE_READ)
 			{
-
+				//CGIHandler::readFromPipe(static_cast<t_CGI_pipe_read *>(fd_data.data), events[i].events, server_context);
 			}
 		}
 	}
