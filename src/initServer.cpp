@@ -170,13 +170,24 @@ static void createClientSocket(t_listen_socket *listen_socket, int epoll_fd, std
 	addClientSocket(epoll_fd, client_fd, listen_socket->server, map_fds);
 }
 
+bool addFlagToEpollFd(int epoll_fd)
+{
+	int descriptor_flags = fcntl(epoll_fd, F_GETFD);  // Obtenemos las description flags del fd con F_GETFD
+	if (descriptor_flags == -1)
+		return (false);
+	descriptor_flags |= FD_CLOEXEC; // Le añadimos FD_CLOEXEC para que, si se crea una copia en un child process, se cierre al hacer un execv()
+	if (fcntl(epoll_fd, F_SETFD, descriptor_flags) == -1) // Usamos F_SETFD para assignarle las nuevas flags
+		return (false);
+	return(true);
+}
+
 void initServer(std::vector<ServerConfig> &serverList)
 {
 	std::map<int, t_fd_data> map_fds;
 	std::map<pid_t, t_pid_context> map_pids;
 	//NOTA: HACER EPOLL_FD FD_CLOEXEC
 	int epoll_fd = epoll_create(1);
-	if (epoll_fd == -1)
+	if (epoll_fd == -1 || !addFlagToEpollFd(epoll_fd))
 		throw std::runtime_error(strerror(errno));
  	loadListenSockets(serverList, epoll_fd, map_fds);
 	
@@ -195,9 +206,7 @@ void initServer(std::vector<ServerConfig> &serverList)
 		{
 			// Si se recibe la señal para cerrar el server, sal del bucle de forma controlada y si Signals::running se ha cambiado se cverrara el servidor 
 			if (errno == EINTR)
-			{
 				continue;
-			}
 			else
 			{
 				UtilsCC::closeServer(epoll_fd, map_fds, map_pids);

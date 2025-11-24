@@ -96,7 +96,7 @@ void UtilsCC::closeServer(int epoll_fd, std::map<int, t_fd_data> &map_fds,
 	}
 }
 
-// Version para limpiar la data cuando hay timeOut
+// Version para limpiar la data cuando hay error
 void UtilsCC::cleanCGI(int epoll_fd ,std::map<pid_t, t_pid_context>::iterator &pid_it, 
 			  std::map<int, t_fd_data> &map_fds)
 {
