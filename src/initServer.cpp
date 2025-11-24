@@ -2,6 +2,7 @@
 #include "../include/utils.hpp"
 #include "../include/utilsCC.hpp"
 #include "../include/Signals.hpp" 
+#include "../include/CGIHandler.hpp"
 
 // Devuelve una lista de configuraciones posibles para un listen socket
 static addrinfo *getAddrinfoList(t_listen listen)
@@ -45,27 +46,6 @@ static int createListenSocket(t_listen listen_conf)
 			close(socket_fd);
 			continue;
 		}
-		//CODIGO SUBSTITUIDO POR addFlagsFd()
-		/*int status_flags = fcntl(socket_fd, F_GETFL); // Obtenemos las status flags del fd con F_GETFL
-		if (status_flags == -1){
-			close(socket_fd);
-			continue;
-		}	
-		status_flags |= O_NONBLOCK; // Le añadimos O_NONBLOCK para hacerlo non-blocking 
-		if (fcntl(socket_fd, F_SETFL, status_flags) == -1){ // Usamos F_SETFL para assignarle las nuevas flags
-			close(socket_fd);
-			continue;
-		}
-		int descriptor_flags = fcntl(socket_fd, F_GETFD);  // Obtenemos las description flags del fd con F_GETFD
-		if (descriptor_flags == -1){
-			close(socket_fd);
-			continue;
-		}	
-		descriptor_flags |= FD_CLOEXEC; // Le añadimos FD_CLOEXEC para que, si se crea una copia en un child process, se cierre al hacer un execv()
-		if (fcntl(socket_fd, F_SETFD, descriptor_flags) == -1){ // Usamos F_SETFD para assignarle las nuevas flags
-			close(socket_fd);
-			continue;
-		}*/
 
 		if (bind(socket_fd, node->ai_addr, node->ai_addrlen) == 0) // Assignamos la configuracion al socket
 			break;
@@ -93,7 +73,7 @@ static void addListenSocket(int epoll_fd, int socket_fd, ServerConfig &server, s
 	{
 		socket = new t_listen_socket(socket_fd, server);
 		t_fd_data fd_data = {socket, LISTEN_SOCKET};
-		// NOTA: MIRAR POSIBLE IMPLEMENTACION DE edge-triggered epoll(EPOLLET), posible mejora de erendimiento
+		// NOTA: MIRAR POSIBLE IMPLEMENTACION DE edge-triggered epoll(EPOLLET), posible mejora de rendimiento
 		// Añadimos el socket al epoll
 		ev.events = EPOLLIN; // Para que epoll nos notifique cuando se intente leer del fd (aceptar una conexion cuenta como leer)
 		ev.data.fd = socket_fd;
@@ -167,38 +147,27 @@ static void addClientSocket(int epoll_fd, int client_fd, ServerConfig &server, s
 
 static void createClientSocket(t_listen_socket *listen_socket, int epoll_fd, std::map<int, t_fd_data> &map_fds)
 {
+	//Procesamos todas las peticiones al client socket
 	sockaddr client_addr;
 	socklen_t client_addr_size = sizeof(client_addr);
 
 	listen_socket->server.print();
-	//Procesamos todas las peticiones al client socket
-	while(true)
+	int client_fd = accept(listen_socket->socket_fd, &client_addr, &client_addr_size); // Al aceptar la conexion, se crea socket especifico para este cliente
+	//if (client_fd == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) Error muy especifico para un level triggered epoll (nivel que falle un write),
+	//																	no se si ponerlo porque no se necesario y no se si el subject lo permite
+	//	return;
+	if (client_fd == -1)
 	{
-		int client_fd = accept(listen_socket->socket_fd, &client_addr, &client_addr_size); // Al aceptar la conexion, se crea socket especifico para este cliente
-		if (client_fd == -1)
-		{
-			// Si ha fallado porque no hay mas peticiones, salimos
-			if ((errno == EAGAIN || errno == EWOULDBLOCK))
-				return;
-			// Si ha fallado porque una señal ha interrumpido el accept y no a sido una de cierre del server, damos otra vuelta del bucle
-			else if (errno == EINTR && Signals::running) 
-				continue;
-			// Si es cualquier otro error se considera error grtave y se printa por terminal
-			else 
-			{
-				std::cerr << RED << "accept() error: " << strerror(errno) << RESET << std::endl;
-				return;
-			}
-		}
-
-		if (!UtilsCC::addFlagsFd(client_fd))
-		{
-			std::cerr << YELLOW << "WARNING: Error setting flags to client fd : " << strerror(errno) << RESET << std::endl;
-			close(client_fd);
-			continue;
-		}
-		addClientSocket(epoll_fd, client_fd, listen_socket->server, map_fds);
+		UtilsCC::closeServer(epoll_fd, map_fds);
+		throw std::runtime_error(strerror(errno));
 	}
+
+	if (!UtilsCC::addFlagsFd(client_fd))
+	{
+		close(client_fd);
+		return;
+	}
+	addClientSocket(epoll_fd, client_fd, listen_socket->server, map_fds);
 }
 
 void initServer(std::vector<ServerConfig> &serverList)
@@ -213,35 +182,22 @@ void initServer(std::vector<ServerConfig> &serverList)
 	
 	epoll_event events[MAX_EVENTS];
 	t_server_context server_context = {epoll_fd, map_fds, map_pids};
+
+	//Configuramos las dos señales para cerrar el server
 	signal(SIGINT, Signals::signalHandler);
+	signal(SIGTERM, Signals::signalHandler);
 	while(Signals::running)
 	{
-		//CHECK MAP_PIDS
-		std::map<pid_t, t_pid_context>::iterator pids_it = map_pids.begin();
-		while (pids_it != map_pids.end())
-		{
-			if (pids_it->second.time >= 50)
-			{
-				std::cerr << RED << "CGI closed by TimeOut" << RESET << std::endl;
-				kill(pids_it->first, SIGKILL);
-				//NOTA: Send error to client
-				UtilsCC::cleanCGI(epoll_fd, pids_it, map_fds);
-				std::map<pid_t, t_pid_context>::iterator aux_it = pids_it;
-				++pids_it;
-				map_pids.erase(aux_it);
-			}
-			else
-			{
-				pids_it->second.time++;
-				++pids_it;
-			}
-		}
+		CGIHandler::monitor(epoll_fd, map_fds, map_pids);
 		
 		int n_events = epoll_wait(epoll_fd, events, MAX_EVENTS, 100);
 		if (n_events == -1)
 		{
-			if (errno == EINTR) // Si la señal para cerrar el server, sal del bucle de forma controlada 
+			// Si se recibe la señal para cerrar el server, sal del bucle de forma controlada y si Signals::running se ha cambiado se cverrara el servidor 
+			if (errno == EINTR)
+			{
 				continue;
+			}
 			else
 			{
 				UtilsCC::closeServer(epoll_fd, map_fds, map_pids);
@@ -254,44 +210,14 @@ void initServer(std::vector<ServerConfig> &serverList)
 			//Comprobamos si un evento anterior ha liberado data de este evento
 			if (it == map_fds.end())
 				continue;
-			
+
 			t_fd_data fd_data = it->second;
 			if (fd_data.type == LISTEN_SOCKET)
 				createClientSocket(static_cast<t_listen_socket *>(fd_data.data), epoll_fd, map_fds);
 			else if (fd_data.type == CLIENT_SOCKET)
 				utils::handleClientSocket(fd_data, server_context, events, i);
 			else if (fd_data.type == CGI_PIPE_WRITE)
-			{
-				t_CGI_pipe_write *s_pipe_write = static_cast<t_CGI_pipe_write *>(fd_data.data);
-				std::map<pid_t, t_pid_context>::iterator pids_it = map_pids.find(s_pipe_write->pid);
-
-				//Calcular cuanto vamos a enviar
-				size_t remaining = s_pipe_write->content_length - s_pipe_write->sended;
-				size_t send_length = (remaining >= 4096) ? 4096 : remaining;
-				//Calcular a partir de donde hemos de escribir
-				const void *pos = s_pipe_write->request_body.c_str() + s_pipe_write->sended;
-
-				ssize_t bytesSend = write(s_pipe_write->fd, pos, send_length);
-				if (bytesSend <= 0)
-				{
-					kill(s_pipe_write->pid, SIGKILL);
-					//NOTA: ENVIAR ERRROR A CLIENTE
-					UtilsCC::cleanCGI(epoll_fd, pids_it, map_fds);
-					//NECESITO SABER SI EL KEEP ALIVE ESTA PUESTO O NO
-					map_pids.erase(pids_it);
-					continue;
-				}
-				// Si se ha ledio reseteamos el time e incrementamos el contador de bytes enviados
-				pids_it->second.time = 0;
-				s_pipe_write->sended += bytesSend;
-				if (s_pipe_write->sended >= s_pipe_write->content_length)
-				{
-					epoll_ctl(epoll_fd, EPOLL_CTL_DEL, s_pipe_write->fd, NULL);
-					close(s_pipe_write->fd);
-					map_fds.erase(s_pipe_write->fd);
-					delete(s_pipe_write);
-				}
-			}
+				CGIHandler::writeInPipe(static_cast<t_CGI_pipe_write *>(fd_data.data), events[i].events, server_context);
 			else if (fd_data.type == CGI_PIPE_READ)
 			{
 

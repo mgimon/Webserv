@@ -1,6 +1,5 @@
 #include "../include/utilsCC.hpp"
 
-
 std::string UtilsCC::to_stringCC(int num)
 {
 	std::stringstream ss;
