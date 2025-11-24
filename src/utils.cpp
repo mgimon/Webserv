@@ -972,7 +972,7 @@ int respondCGI(t_server_context &server_context, t_client_socket *client_socket,
     CGI::Handler CgiHandler;
 
     CgiHandler.setEnv(allocateCgiEnv(requestLocation, http_request, serverOne)); // recordar liberar
-    CgiHandler.setCgi(requestLocation->getPythonCGIExecutable().c_str());
+    CgiHandler.setCgi(requestLocation->getPythonCGIExecutable());
     CgiHandler.setNameScript(getCgiScriptNameFromPath(http_request.getPath()));
     if (isLocation(serverOne, http_request.getPath()) == 1)
         CgiHandler.setPathScript(getCgiScriptPathFromPath(http_request.getPath()));
@@ -981,14 +981,17 @@ int respondCGI(t_server_context &server_context, t_client_socket *client_socket,
     CgiHandler.setRequest(http_request.getMethod());
     CgiHandler.setClientSocket(client_socket);
     CgiHandler.setServerContext(&server_context);
+    CgiHandler.setRequestBody(http_request.getBody());
     CgiHandler.printAttributes();
 
+    CgiHandler.startCGI();
+    freeCStr(CgiHandler.getEnv());
+
+    // No hay que responder aqui
     http_response.setResponse(200, getCustomResponse("CGI Management", "CGI will be managed here"));
     if (http_response.respondInClient(client_fd) == -1)
         return (-1);
     return (keep_alive);
-    // CGI::startCGI();
-    // freeCStr(CgiHandler.getEnv());
 }
 
 int respond(t_server_context &server_context, t_client_socket *client_socket, int client_fd, const HttpRequest &http_request, ServerConfig &serverOne)

@@ -16,12 +16,11 @@
 
 namespace CGI
 {
-	int startCGI(char *cgi, char *nameScript, char *pathScript, char **env, std::string request, t_server_context &server_context, t_client_socket *client_socket);
 
 	class Handler
 	{
 		private:
-			const char *cgi_;
+			std::string cgi_;
 			std::string nameScript_;
 			std::string pathScript_;
 			char **env_;
@@ -29,6 +28,7 @@ namespace CGI
 			t_server_context *server_context_;
 			t_client_socket *client_socket_;
 			bool chunked_;
+			std::string request_body_;
 		public:
 			// Canonical
 			Handler();
@@ -37,7 +37,7 @@ namespace CGI
 			~Handler();
 
 			// Getters
-			const char* getCgi() const;
+			std::string getCgi() const;
 			std::string getNameScript() const;
 			std::string getPathScript() const;
 			char** getEnv() const;
@@ -45,9 +45,10 @@ namespace CGI
 			t_server_context* getServerContext() const;
 			t_client_socket* getClientSocket() const;
 			bool isChunked() const;
+			std::string getRequestBody() const;
 
 			// Setters
-			void setCgi(const char* cgi);
+			void setCgi(const std::string &cgi);
 			void setNameScript(const std::string &nameScript);
 			void setPathScript(const std::string &pathScript);
 			void setEnv(char** env);
@@ -55,8 +56,10 @@ namespace CGI
 			void setServerContext(t_server_context *server_context);
 			void setClientSocket(t_client_socket *client_socket);
 			void setChunked(const std::map<std::string, std::string> &headers);
+			void setRequestBody(const std::string &requestBody);
 
 			// Methods
 			void printAttributes() const;
+			int startCGI();
 	};
 }

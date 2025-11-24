@@ -3,12 +3,12 @@
 namespace CGI
 {
 
-Handler::Handler() : cgi_(NULL), nameScript_(""), pathScript_(""), env_(NULL), request_(), server_context_(), client_socket_(NULL), chunked_(false) {}
-Handler::Handler(const Handler& other) : cgi_(other.cgi_), nameScript_(other.nameScript_), pathScript_(other.pathScript_), env_(other.env_), request_(other.request_), server_context_(other.server_context_), client_socket_(other.client_socket_), chunked_(other.chunked_) {}
-Handler& Handler::operator=(const Handler& other) { if (this != &other) { cgi_ = other.cgi_; nameScript_ = other.nameScript_; pathScript_ = other.pathScript_; env_ = other.env_; request_ = other.request_; server_context_ = other.server_context_; client_socket_ = other.client_socket_; chunked_ = other.chunked_; } return *this; }
+Handler::Handler() : cgi_(""), nameScript_(""), pathScript_(""), env_(NULL), request_(), server_context_(), client_socket_(NULL), chunked_(false) {}
+Handler::Handler(const Handler& other) : cgi_(other.cgi_), nameScript_(other.nameScript_), pathScript_(other.pathScript_), env_(other.env_), request_(other.request_), server_context_(other.server_context_), client_socket_(other.client_socket_), chunked_(other.chunked_), request_body_(other.request_body_) {}
+Handler& Handler::operator=(const Handler& other) { if (this != &other) { cgi_ = other.cgi_; nameScript_ = other.nameScript_; pathScript_ = other.pathScript_; env_ = other.env_; request_ = other.request_; server_context_ = other.server_context_; client_socket_ = other.client_socket_; chunked_ = other.chunked_; request_body_ = other.request_body_; } return *this; }
 Handler::~Handler() {}
 
-const char* Handler::getCgi() const { return cgi_; }
+std::string Handler::getCgi() const { return cgi_; }
 std::string Handler::getNameScript() const { return nameScript_; }
 std::string Handler::getPathScript() const { return pathScript_; }
 char** Handler::getEnv() const { return env_; }
@@ -16,14 +16,16 @@ std::string& Handler::getRequest() const { return const_cast<std::string&>(reque
 t_server_context* Handler::getServerContext() const { return server_context_; }
 t_client_socket* Handler::getClientSocket() const { return client_socket_; }
 bool Handler::isChunked() const { return chunked_; }
+std::string Handler::getRequestBody() const { return request_body_; }
 
-void Handler::setCgi(const char* cgi) { cgi_ = cgi; }
+void Handler::setCgi(const std::string &cgi) { cgi_ = cgi; }
 void Handler::setNameScript(const std::string &nameScript) { nameScript_ = nameScript; }
 void Handler::setPathScript(const std::string &pathScript) { pathScript_ = pathScript; }
 void Handler::setEnv(char** env) { env_ = env; }
 void Handler::setRequest(const std::string &request) { request_ = request; }
 void Handler::setServerContext(t_server_context *server_context) { server_context_ = server_context; }
 void Handler::setClientSocket(t_client_socket *client_socket) { client_socket_ = client_socket; }
+void Handler::setRequestBody(const std::string &requestBody) { request_body_ = requestBody; }
 void Handler::setChunked(const std::map<std::string, std::string> &headers)
 {
     chunked_ = false;
@@ -48,7 +50,7 @@ void Handler::printAttributes() const
     std::cout << PINK;
     std::cout << "=== CGI Handler Attributes ===" << std::endl;
     std::cout << "CGI: ";
-    if (cgi_)
+    if (!cgi_.empty())
         std::cout << cgi_ << std::endl;
     else
         std::cout << "(null)" << std::endl;
@@ -82,21 +84,24 @@ void Handler::printAttributes() const
     if (!client_socket_) std::cout << " (null)";
 
 	std::cout << std::endl;
+    std::cout << "Request Body: " << request_body_;
+
+	std::cout << std::endl;
     std::cout << "===============================" << std::endl;
     std::cout << RESET << std::endl;
 }
 
-static void cleanReadPipe(int pipe_read_fd, t_server_context &server_context)
+static void cleanReadPipe(int pipe_read_fd, t_server_context *server_context)
 {
-	t_fd_data pipe_read_data = server_context.map_fds.find(pipe_read_fd)->second;
-	epoll_ctl(server_context.epoll_fd, EPOLL_CTL_DEL, pipe_read_fd, NULL);
+	t_fd_data pipe_read_data = server_context->map_fds.find(pipe_read_fd)->second;
+	epoll_ctl(server_context->epoll_fd, EPOLL_CTL_DEL, pipe_read_fd, NULL);
 	close(pipe_read_fd);
 	delete(static_cast<t_CGI_pipe_read*>(pipe_read_data.data));
-	server_context.map_fds.erase(pipe_read_fd);
+	server_context->map_fds.erase(pipe_read_fd);
 }
 
 static int addPipeWrite(int pipe_write_fd, int pipe_read_fd, pid_t pid, std::string request_body,
-			int content_length, t_client_socket *client_socket, t_server_context &server_context)
+			t_client_socket *client_socket, t_server_context *server_context)
 {
 	epoll_event ev;
 	s_CGI_pipe_write *s_pipe_write = NULL;
@@ -105,18 +110,18 @@ static int addPipeWrite(int pipe_write_fd, int pipe_read_fd, pid_t pid, std::str
 
 	try
 	{
-		s_pipe_write = new s_CGI_pipe_write(pipe_write_fd, request_body, content_length, pid, client_socket);
+		s_pipe_write = new s_CGI_pipe_write(pipe_write_fd, request_body, request_body.size(), pid, client_socket);
 		t_fd_data pipe_write_data = {s_pipe_write, CGI_PIPE_WRITE};
 		
 		ev.events = EPOLLOUT | EPOLLHUP | EPOLLERR;
 		ev.data.fd = pipe_write_fd;
-		if (epoll_ctl(server_context.epoll_fd, EPOLL_CTL_ADD, pipe_write_fd, &ev) == -1)
+		if (epoll_ctl(server_context->epoll_fd, EPOLL_CTL_ADD, pipe_write_fd, &ev) == -1)
 			throw std::runtime_error(strerror(errno));
 		epoll_inserted = true;
-		data_inserted = server_context.map_fds.insert(std::make_pair(pipe_write_fd, pipe_write_data)).second;
+		data_inserted = server_context->map_fds.insert(std::make_pair(pipe_write_fd, pipe_write_data)).second;
 		
 		t_pid_context pid_context = {0, pipe_write_fd, pipe_read_fd, client_socket->socket_fd, false};
-		server_context.map_pids.insert(std::make_pair(pid, pid_context));
+		server_context->map_pids.insert(std::make_pair(pid, pid_context));
 	}
 	catch(const std::exception& e)
 	{
@@ -125,19 +130,19 @@ static int addPipeWrite(int pipe_write_fd, int pipe_read_fd, pid_t pid, std::str
 		cleanReadPipe(pipe_read_fd, server_context);
 		//Liberamos el write pipe
 		if (epoll_inserted)
-			epoll_ctl(server_context.epoll_fd, EPOLL_CTL_DEL, pipe_read_fd, NULL);
+			epoll_ctl(server_context->epoll_fd, EPOLL_CTL_DEL, pipe_read_fd, NULL);
 		close(pipe_write_fd);
 		if (s_pipe_write != NULL)
 			delete(s_pipe_write);
 		if (data_inserted)	
-			server_context.map_fds.erase(pipe_write_fd);
+			server_context->map_fds.erase(pipe_write_fd);
 		kill(pid, SIGKILL); // Cerramos el proceso hijo
 		return (0); // Devolver un 500 error al cliente
 	}
 	return(1);
 }
 
-static int addPipeRead(int pipe_write_fd, int pipe_read_fd, pid_t pid, t_client_socket *client_socket, t_server_context &server_context)
+static int addPipeRead(int pipe_write_fd, int pipe_read_fd, pid_t pid, t_client_socket *client_socket, t_server_context *server_context)
 {
 	epoll_event ev;
 	s_CGI_pipe_read *s_pipe_read = NULL;
@@ -149,10 +154,10 @@ static int addPipeRead(int pipe_write_fd, int pipe_read_fd, pid_t pid, t_client_
 		t_fd_data pipe_read_data = {s_pipe_read, CGI_PIPE_READ};
 		ev.events = EPOLLIN | EPOLLHUP | EPOLLERR;
 		ev.data.fd = pipe_read_fd;
-		if (epoll_ctl(server_context.epoll_fd, EPOLL_CTL_ADD, pipe_read_fd, &ev) == -1)
+		if (epoll_ctl(server_context->epoll_fd, EPOLL_CTL_ADD, pipe_read_fd, &ev) == -1)
 			throw std::runtime_error(strerror(errno));
 		epoll_inserted = true;
-		server_context.map_fds.insert(std::make_pair(pipe_read_fd, pipe_read_data));
+		server_context->map_fds.insert(std::make_pair(pipe_read_fd, pipe_read_data));
 	}
 	catch(const std::exception& e)
 	{
@@ -160,7 +165,7 @@ static int addPipeRead(int pipe_write_fd, int pipe_read_fd, pid_t pid, t_client_
 		//Liberamos el read pipe y cerrramos el fd de write pipes
 		close(pipe_write_fd);
 		if (epoll_inserted)
-			epoll_ctl(server_context.epoll_fd, EPOLL_CTL_DEL, pipe_read_fd, NULL);
+			epoll_ctl(server_context->epoll_fd, EPOLL_CTL_DEL, pipe_read_fd, NULL);
 		close(pipe_read_fd);
 		if (s_pipe_read != NULL)
 			delete(s_pipe_read);
@@ -221,14 +226,13 @@ static int configPipes(int *pipe_write, int *pipe_read)
 	return(1);
 }
 
-int startCGI(const std::string &cgi, const std::string &nameScript, const std::string &pathScript, char **env,
-			const std::string &request, std::string request_body, int content_length, t_server_context &server_context, t_client_socket *client_socket)
+int Handler::startCGI()
 {
 	int pipe_write[2]; // Padre escribe, hijo lee
 	int pipe_read[2]; // Padre lee, hijo escribe
 
-	std::string complete_route = "." + pathScript + nameScript;
-	if (access(cgi.c_str(), X_OK) == -1 || access(complete_route.c_str(), R_OK | X_OK) == -1)
+	std::string complete_route = std::string(".") + cgi_ + nameScript_;
+	if (access(cgi_.c_str(), X_OK) == -1 || access(complete_route.c_str(), R_OK | X_OK) == -1)
 		return(-1); // Devolver un 403 error al cliente
 	if (configPipes(pipe_write, pipe_read) == 0)
 		return(0); // Devolver un 500 error al cliente
@@ -240,18 +244,18 @@ int startCGI(const std::string &cgi, const std::string &nameScript, const std::s
 		return (0); // Devolver un 500 error al cliente
 	}
 	if (pid == 0) // Child process
-		execCGI(pipe_write, pipe_read, cgi, nameScript, pathScript, env);
+		execCGI(pipe_write, pipe_read, cgi_, nameScript_, pathScript_, env_);
 	//Cerramos los fds de los otros extremo de las tuberias que no necesitamos en el padre
 	close(pipe_write[0]);
 	close(pipe_read[1]);
 	
-	if (addPipeRead(pipe_write[1], pipe_read[0], pid, client_socket, server_context) == 0)
+	if (addPipeRead(pipe_write[1], pipe_read[0], pid, client_socket_, server_context_) == 0)
 		return (0);
 
 	//Si el metodo es POST, usamos las dos pipes, si no cerramos la de lectura
-	if (request == "POST")
+	if (request_ == "POST")
 	{
-		if (addPipeWrite(pipe_write[1], pipe_read[0], pid, request_body, content_length, client_socket, server_context) == 0)
+		if (addPipeWrite(pipe_write[1], pipe_read[0], pid, request_body_, client_socket_, server_context_) == 0)
 			return(0);
 	}
 	else
@@ -259,14 +263,14 @@ int startCGI(const std::string &cgi, const std::string &nameScript, const std::s
 		close(pipe_write[1]);
 		try
 		{
-			t_pid_context pid_context = {0, -1, pipe_read[0], client_socket->socket_fd, true};
-			server_context.map_pids.insert(std::make_pair(pid, pid_context));
+			t_pid_context pid_context = {0, -1, pipe_read[0], client_socket_->socket_fd, true};
+			server_context_->map_pids.insert(std::make_pair(pid, pid_context));
 		}
 		catch(const std::exception& e)
 		{
 			std::cerr << RED << e.what() << RESET << std::endl;
 			//Liberamos el read pipe
-			cleanReadPipe(pipe_read[0], server_context);
+			cleanReadPipe(pipe_read[0], server_context_);
 			kill(pid, SIGKILL); // Cerramos el proceso hijo
 			return (0); // Devolver un 500 error al cliente
 		}
