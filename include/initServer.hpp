@@ -1,6 +1,7 @@
 #pragma once
 
-#include "../include/ServerConfig.hpp"
+#include "ServerConfig.hpp"
+
 #include <netdb.h>
 #include <list>
 #include <map>
@@ -25,10 +26,10 @@ typedef struct s_client_socket
 	std::string		readBuffer;
 
 	//Constructor
-	s_client_socket(int fd, ServerConfig& srv, const std::string& buffer) : 
+	s_client_socket(int fd, ServerConfig& srv) : 
         socket_fd(fd), 
         server(srv), // Inicializa la referencia correctamente
-        readBuffer(buffer) {}
+        readBuffer("") {}
 }	t_client_socket;
 
 typedef struct s_CGI_pipe_read
@@ -46,13 +47,18 @@ typedef struct s_CGI_pipe_read
 typedef struct s_CGI_pipe_write
 {
 	int fd;
-	int pipe_read_fd;
+	std::string request_body;
+	size_t content_length;
+	size_t sended;
 	pid_t pid;
 	t_client_socket *client_socket;
 
-	s_CGI_pipe_write(int fd_write, int fd_read, pid_t pid_CGI, t_client_socket *conexion_socket) : 
-        fd(fd_write),
-		pipe_read_fd(fd_read), 
+	s_CGI_pipe_write(int fd_pipe, std::string body, int body_length, pid_t pid_CGI,
+	 				t_client_socket *conexion_socket) : 
+        fd(fd_pipe),
+		request_body(body),
+		content_length(body_length),
+		sended(0),
         pid(pid_CGI),
 		client_socket(conexion_socket) {}
 }	t_CGI_pipe_write;
@@ -73,9 +79,6 @@ typedef struct s_fd_data
 	void*	data;
 	FDType 	type;
 
-	s_fd_data(void* ptr, FDType tp) : 
-        data(ptr), 
-        type(tp) {}
 }	t_fd_data;
 
 typedef struct s_pid_context 
@@ -90,7 +93,7 @@ typedef struct s_pid_context
 typedef struct s_server_context 
 {
     int epoll_fd;
-    std::map<int, t_fd_data *> &map_fds;
+    std::map<int, t_fd_data> &map_fds;
     std::map<pid_t, t_pid_context> &map_pids;
 }	t_server_context;
 

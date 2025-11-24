@@ -10,8 +10,8 @@
 #include "../include/initServer.hpp"
 #include "../include/utils.hpp"
 #include "../include/ServerConfig.hpp"
+#include "utilsCC.hpp"
 #include <string>
-
 
 
 namespace CGI

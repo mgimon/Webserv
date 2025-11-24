@@ -727,7 +727,7 @@ bool isCompleteRequest(const std::string& str)
     return (false);
 }
 
-void readFromSocket(t_fd_data *fd_data, t_client_socket *client_socket, int epoll_fd, std::map<int, t_fd_data *> &map_fds)
+void readFromSocket(t_client_socket *client_socket, int epoll_fd, std::map<int, t_fd_data> &map_fds)
 {
     char buf[4096];
     ssize_t bytesRead = recv(client_socket->socket_fd, buf, sizeof(buf), 0);
@@ -735,12 +735,10 @@ void readFromSocket(t_fd_data *fd_data, t_client_socket *client_socket, int epol
     if (bytesRead <= 0)
     {
         //NOTA: SE PODRIA AGRUPAR EL CONTENIDO DEL IF EN UNA FUNCION erase_fd_data()
-        int socket_fd = client_socket->socket_fd;
-        epoll_ctl(epoll_fd, EPOLL_CTL_DEL, socket_fd, NULL);
-        close(socket_fd);
+        epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_socket->socket_fd, NULL);
+        close(client_socket->socket_fd);
+        map_fds.erase(client_socket->socket_fd);
         delete(client_socket);
-        delete(fd_data);
-        map_fds.erase(socket_fd);
         return;
     }
     // leido -> append
@@ -1042,14 +1040,12 @@ int respond(t_server_context &server_context, t_client_socket *client_socket, in
     }
 }
 
-void removeConnection(t_client_socket *client_socket, t_fd_data *fd_data, int epoll_fd, std::map<int, t_fd_data *> &map_fds)
+void removeConnection(t_client_socket *client_socket, int epoll_fd, std::map<int, t_fd_data> &map_fds)
 {
-    int socket_fd = client_socket->socket_fd;
-    epoll_ctl(epoll_fd, EPOLL_CTL_DEL, socket_fd, NULL);
-    close(socket_fd);
+    epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_socket->socket_fd, NULL);
+    close(client_socket->socket_fd);
+    map_fds.erase(client_socket->socket_fd);
     delete(client_socket);
-    delete(fd_data);
-    map_fds.erase(socket_fd);
 }
 
 std::string toUpper(const std::string& str)
@@ -1104,17 +1100,17 @@ std::string getCgiScriptPathFromPath(const std::string &path)
     return path.substr(0, slashPos);
 }
 
-void handleClientSocket(t_fd_data *fd_data, t_server_context &server_context, epoll_event (&events)[MAX_EVENTS], int i)
+void handleClientSocket(t_fd_data &fd_data, t_server_context &server_context, epoll_event (&events)[MAX_EVENTS], int i)
 {
-    t_client_socket *client_socket = static_cast<t_client_socket *>(fd_data->data);
+    t_client_socket *client_socket = static_cast<t_client_socket *>(fd_data.data);
     client_socket->server.print();
 
     if (events[i].events & (EPOLLHUP | EPOLLERR))
     {
-        removeConnection(client_socket, fd_data, server_context.epoll_fd, server_context.map_fds);
+        removeConnection(client_socket, server_context.epoll_fd, server_context.map_fds);
         return ;
     }
-    readFromSocket(fd_data, client_socket, server_context.epoll_fd, server_context.map_fds);
+    readFromSocket(client_socket, server_context.epoll_fd, server_context.map_fds);
     if (isCompleteRequest(client_socket->readBuffer))
     {
         HttpRequest http_request(client_socket->readBuffer);
