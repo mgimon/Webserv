@@ -1107,7 +1107,7 @@ void handleClientSocket(t_fd_data &fd_data, t_server_context &server_context, ep
 
     if (events[i].events & (EPOLLHUP | EPOLLERR))
     {
-        removeConnection(client_socket, server_context.epoll_fd, server_context.map_fds);
+        removeConnection(client_socket, server_context.epoll_fd, server_context.map_fds);    
         return ;
     }
     readFromSocket(client_socket, server_context.epoll_fd, server_context.map_fds);
@@ -1150,7 +1150,7 @@ void handleClientSocket(t_fd_data &fd_data, t_server_context &server_context, ep
             //->respond normal y QSLQDQ
 
         if (respond(server_context, client_socket, client_socket->socket_fd, http_request, client_socket->server) == -1) // Client requests Connection:close, or Error
-            removeConnection(client_socket, fd_data, server_context.epoll_fd, server_context.map_fds);
+            removeConnection(client_socket, server_context.epoll_fd, server_context.map_fds);
         else
             client_socket->readBuffer.clear();
     }

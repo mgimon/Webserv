@@ -12,11 +12,8 @@ SRCS = main.cpp utils.cpp utilsCC.cpp \
 		initServer.cpp \
 		ConfigParser.cpp \
 		Signals.cpp \
-<<<<<<< HEAD
-		CGI.cpp
-=======
+		CGI.cpp \
 		CGIHandler.cpp
->>>>>>> origin/daortega2
 
 OBJS = $(SRCS:.cpp=.o)
 INCLUDES = -I $(INC_DIR)
