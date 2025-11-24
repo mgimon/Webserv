@@ -94,7 +94,8 @@ void CGIHandler::readFromPipe(t_CGI_pipe_read *s_pipe_read, uint32_t &event, t_s
 
     if (bytesRead < 0)
 		return;
-	s_pipe_read->client_socket->readBuffer.append(buf, bytesRead);
+	
+	s_pipe_read->client_socket->sendBuffer.append(buf, bytesRead);
     if (bytesRead == 0)
     {
 		//NOTA: Mirar si la funcion es complete request o hay que hacer una en concreto para comrobar si se ha leido todo

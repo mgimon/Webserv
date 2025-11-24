@@ -24,12 +24,15 @@ typedef struct s_client_socket
 	int				socket_fd;
 	ServerConfig&	server;
 	std::string		readBuffer;
+	std::string		sendBuffer;
+
 
 	//Constructor
 	s_client_socket(int fd, ServerConfig& srv) : 
         socket_fd(fd), 
         server(srv), // Inicializa la referencia correctamente
-        readBuffer("") {}
+        readBuffer(""),
+		sendBuffer("") {}
 }	t_client_socket;
 
 typedef struct s_CGI_pipe_read
