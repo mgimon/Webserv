@@ -40,6 +40,7 @@ typedef struct s_CGI_pipe_read
 	int fd;
 	pid_t pid;
 	t_client_socket *client_socket;
+	std::string raw_buffer;
 
 	s_CGI_pipe_read(int fd_in, pid_t pid_CGI, t_client_socket *conexion_socket) : 
         fd(fd_in),
