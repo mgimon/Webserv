@@ -62,6 +62,7 @@ void CGIHandler::writeInPipe(t_CGI_pipe_write *s_pipe_write, uint32_t &event, t_
 	s_pipe_write->sended += bytesSend;
 	if (s_pipe_write->sended >= s_pipe_write->content_length)
 	{
+		pids_it->second.write_finished = true;
 		epoll_ctl(server_context.epoll_fd, EPOLL_CTL_DEL, s_pipe_write->fd, NULL);
 		close(s_pipe_write->fd);
 		server_context.map_fds.erase(s_pipe_write->fd);
