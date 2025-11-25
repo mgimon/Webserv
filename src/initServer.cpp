@@ -228,9 +228,7 @@ void initServer(std::vector<ServerConfig> &serverList)
 			else if (fd_data.type == CGI_PIPE_WRITE)
 				CGIHandler::writeInPipe(static_cast<t_CGI_pipe_write *>(fd_data.data), events[i].events, server_context);
 			else if (fd_data.type == CGI_PIPE_READ)
-			{
-				//CGIHandler::readFromPipe(static_cast<t_CGI_pipe_read *>(fd_data.data), events[i].events, server_context);
-			}
+				CGIHandler::readFromPipe(static_cast<t_CGI_pipe_read *>(fd_data.data), events[i].events, server_context);
 		}
 	}
 	UtilsCC::closeServer(epoll_fd, map_fds, map_pids);

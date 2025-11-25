@@ -102,7 +102,7 @@ void CGIHandler::readFromPipe(t_CGI_pipe_read *s_pipe_read, uint32_t &event, t_s
 		//NOTA: Mirar si la funcion es complete request o hay que hacer una en concreto para comrobar si se ha leido todo
 		if (pids_it->second.write_finished /*&& isCompleteRequest(s_pipe_read->client_socket->readBuffer*/)
 		{
-			//Enviar response
+			utils::respondCGI(server_context, s_pipe_read->client_socket);
 		}
 		else // Se ha acabdo de leer antes de acabar de escribir o la request no esta acabada pero se ha acbado de leer. ERROR LOGICO GRAVE, cerramos
 		{

@@ -950,25 +950,8 @@ char **allocateCgiEnv(const LocationConfig *requestLocation, const HttpRequest &
     return (env);
 }
 
-int respondCGI(t_server_context &server_context, t_client_socket *client_socket, const LocationConfig *requestLocation, int client_fd, const HttpRequest &http_request, HttpResponse &http_response, ServerConfig &serverOne)
+int setCGI(t_server_context &server_context, t_client_socket *client_socket, const LocationConfig *requestLocation, int client_fd, const HttpRequest &http_request, HttpResponse &http_response, ServerConfig &serverOne)
 {
-    std::string checkPath;
-    int keep_alive = checkConnectionClose(http_request, http_response);
-
-    if (isLocation(serverOne, http_request.getPath()) == 1)
-        checkPath = trimQueryString("." + http_request.getPath());
-    else
-        checkPath = trimQueryString (serverOne.getDocumentRoot() + http_request.getPath());
-    if (access(checkPath.c_str(), F_OK) != 0)
-    {
-        if (errno == ENOENT)
-            http_response.setError(getErrorPath(serverOne, 404), 404, "Not Found");
-        else
-            http_response.setError(getErrorPath(serverOne, 403), 403, "Forbidden");
-        if (http_response.respondInClient(client_fd) == -1)
-            return (-1);
-    }
-
     CGI::Handler CgiHandler;
 
     CgiHandler.setEnv(allocateCgiEnv(requestLocation, http_request, serverOne)); // recordar liberar
@@ -984,14 +967,22 @@ int respondCGI(t_server_context &server_context, t_client_socket *client_socket,
     CgiHandler.setRequestBody(http_request.getBody());
     CgiHandler.printAttributes();
 
-    CgiHandler.startCGI();
+    int r = CgiHandler.startCGI();
     freeCStr(CgiHandler.getEnv());
-
-    // No hay que responder aqui
-    http_response.setResponse(200, getCustomResponse("CGI Management", "CGI will be managed here"));
-    if (http_response.respondInClient(client_fd) == -1)
+    if (r == 0)
+    {
+        http_response.setError(getErrorPath(serverOne, 500), 500, "Internal Server Error");
+        http_response.respondInClient(client_fd);
         return (-1);
-    return (keep_alive);
+    }
+    else if (r == -1)
+    {
+        http_response.setError(getErrorPath(serverOne, 403), 403, "Forbidden");
+        http_response.respondInClient(client_fd);
+        return (-1);
+    }
+    else
+        return (0); // mantiene conexion abierta, iteracion posterior manejara el CGI
 }
 
 int respond(t_server_context &server_context, t_client_socket *client_socket, int client_fd, const HttpRequest &http_request, ServerConfig &serverOne)
@@ -1011,9 +1002,10 @@ int respond(t_server_context &server_context, t_client_socket *client_socket, in
 
     std::cout << YELLOW << "Request location is " << requestLocation->getPath() << RESET << std::endl;
 
-    // serve REDIRECT or CGI
+    // serve REDIRECT
     if (serveRedirect(http_request, serverOne, requestLocation, client_fd, http_response) == 1)
         return (0);
+    // set CGI
     if (http_request.getPath().find(".py") != std::string::npos)
     {
         if (locationMatchforRequest(http_request.getPath(), serverOne.getLocations())->getPythonCGIExecutable().empty())
@@ -1023,7 +1015,7 @@ int respond(t_server_context &server_context, t_client_socket *client_socket, in
                 return (-1);
             return (keep_alive);
         }
-        return (respondCGI(server_context, client_socket, requestLocation, client_fd, http_request, http_response, serverOne));
+        return (setCGI(server_context, client_socket, requestLocation, client_fd, http_request, http_response, serverOne));
     }
 
     // serve NORMAL REQUEST
@@ -1041,6 +1033,53 @@ int respond(t_server_context &server_context, t_client_socket *client_socket, in
             return (-1);
         return (keep_alive);
     }
+}
+
+int respondCGI(t_server_context &server_context, t_client_socket *client_socket)
+{
+    HttpRequest http_request(client_socket->readBuffer);
+    HttpResponse http_response;
+    std::string checkPath;
+    int keep_alive = checkConnectionClose(http_request, http_response);
+    const std::string &method = http_request.getMethod();
+    const LocationConfig *requestLocation = locationMatchforRequest(http_request.getPath(), client_socket->server.getLocations());
+    std::pair<int, std::string> redirect;
+
+    if (!requestLocation)
+    {
+        http_response.setError(getErrorPath(client_socket->server, 404), 404, "Not Found");
+        if (http_response.respondInClient(client_socket->socket_fd) == -1)
+            return (-1);
+        return (keep_alive);
+    }
+
+    redirect = requestLocation->getRedirect();
+    if (redirect.first != 0)
+    {
+        http_response.setError(getErrorPath(client_socket->server, 403), 403, "Forbidden");
+        if (http_response.respondInClient(client_socket->socket_fd) == -1)
+            return (-1);
+        return (keep_alive);
+    }
+
+    if (isLocation(client_socket->server, http_request.getPath()) == 1)
+        checkPath = trimQueryString("." + http_request.getPath());
+    else
+        checkPath = trimQueryString (client_socket->server.getDocumentRoot() + http_request.getPath());
+    if (access(checkPath.c_str(), F_OK) != 0)
+    {
+        if (errno == ENOENT)
+            http_response.setError(getErrorPath(client_socket->server, 404), 404, "Not Found");
+        else
+            http_response.setError(getErrorPath(client_socket->server, 403), 403, "Forbidden");
+        http_response.respondInClient(client_socket->socket_fd);
+        return (-1);
+    }
+
+    // responder CGI segun metodos normales
+    // GET - devolver el archivo .py, si existe, transformado a HTML
+    // POST - Reciclar POST normal de respond
+    // DELETE - Reciclar DELETE normal de respond
 }
 
 void removeConnection(t_client_socket *client_socket, int epoll_fd, std::map<int, t_fd_data> &map_fds)

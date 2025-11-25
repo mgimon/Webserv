@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CGI.hpp"
+#include "utils.hpp"
 
 namespace CGIHandler
 {
