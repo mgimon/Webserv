@@ -17,10 +17,10 @@ void CGIHandler::monitor(int epoll_fd, std::map<int, t_fd_data> &map_fds, std::m
 	{
 		if (pids_it->second.time >= 50)
 		{
-			//std::cerr << RED << "CGI closed by TimeOut" << RESET << std::endl;
+			std::cerr << RED << "CGI closed by TimeOut" << RESET << std::endl;
 			kill(pids_it->first, SIGKILL);
 			sendInternalError(pids_it->second.client_socket_fd, map_fds);
-			UtilsCC::cleanCGI(epoll_fd, pids_it, map_fds);
+			UtilsCC::cleanCGI(epoll_fd, pids_it, map_fds, false);
 			std::map<pid_t, t_pid_context>::iterator aux_it = pids_it;
 			++pids_it;
 			map_pids.erase(aux_it);
@@ -40,10 +40,10 @@ void CGIHandler::writeInPipe(t_CGI_pipe_write *s_pipe_write, uint32_t &event, t_
 	//Si la pipe se ha cerrado antes de acabar de escribir limpiamos
 	if (event & (EPOLLHUP | EPOLLERR))
 	{
-		//std::cerr << RED << "CGI closed by error at writePipe" << RESET << std::endl;
+		std::cerr << RED << "CGI closed by error at writePipe" << RESET << std::endl;
 		kill(s_pipe_write->pid, SIGKILL);
 		sendInternalError(s_pipe_write->client_socket->socket_fd, server_context.map_fds);
-		UtilsCC::cleanCGI(server_context.epoll_fd, pids_it, server_context.map_fds);
+		UtilsCC::cleanCGI(server_context.epoll_fd, pids_it, server_context.map_fds, false);
 		server_context.map_pids.erase(pids_it);
 		return;
 	}
@@ -77,24 +77,31 @@ void CGIHandler::writeInPipe(t_CGI_pipe_write *s_pipe_write, uint32_t &event, t_
 void CGIHandler::readFromPipe(t_CGI_pipe_read *s_pipe_read, uint32_t &event, t_server_context &server_context)
 {
 	std::map<pid_t, t_pid_context>::iterator pids_it = server_context.map_pids.find(s_pipe_read->pid);
-
-	//Si la pipe se ha cerrado antes de acabar de leer limpiamos
-	if (event & (EPOLLHUP | EPOLLERR))
+	(void)event;
+	//Mirar que hacer cuabo se cierra la pipe pero no hemos acabdod e excribir, logica del error leyendo
+	/*if (event & (EPOLLHUP | EPOLLERR))
 	{
-		//std::cerr << RED << "CGI closed by error at readPipe" << RESET << std::endl;
+		std::cerr << RED << "CGI closed by error at readPipe" << RESET << std::endl;
 		kill(s_pipe_read->pid, SIGKILL);
 		sendInternalError(s_pipe_read->client_socket->socket_fd, server_context.map_fds);
-		UtilsCC::cleanCGI(server_context.epoll_fd, pids_it, server_context.map_fds);
+		UtilsCC::cleanCGI(server_context.epoll_fd, pids_it, server_context.map_fds, false);
 		server_context.map_pids.erase(pids_it);
 		return;
-	}
+	}*/
 	pids_it->second.time = 0;
 	
 	char buf[4096];
     ssize_t bytesRead = read(s_pipe_read->fd, buf, sizeof(buf));
 
     if (bytesRead < 0)
+	{
+		std::cerr << RED << "CGI closed by error at readPipe" << RESET << std::endl;
+		kill(s_pipe_read->pid, SIGKILL);
+		sendInternalError(s_pipe_read->client_socket->socket_fd, server_context.map_fds);
+		UtilsCC::cleanCGI(server_context.epoll_fd, pids_it, server_context.map_fds, false);
+		server_context.map_pids.erase(pids_it);
 		return;
+	}
 	
 	s_pipe_read->client_socket->sendBuffer.append(buf, bytesRead);
     if (bytesRead == 0)
@@ -102,14 +109,16 @@ void CGIHandler::readFromPipe(t_CGI_pipe_read *s_pipe_read, uint32_t &event, t_s
 		//NOTA: Mirar si la funcion es complete request o hay que hacer una en concreto para comrobar si se ha leido todo
 		if (pids_it->second.write_finished /*&& isCompleteRequest(s_pipe_read->client_socket->readBuffer*/)
 		{
-			utils::respondCGI(server_context, s_pipe_read->client_socket);
+			int keepAlive = utils::respondCGI(server_context, s_pipe_read->client_socket);
+			UtilsCC::cleanCGI(server_context.epoll_fd, pids_it, server_context.map_fds, !keepAlive);
+			server_context.map_pids.erase(pids_it);
 		}
 		else // Se ha acabdo de leer antes de acabar de escribir o la request no esta acabada pero se ha acbado de leer. ERROR LOGICO GRAVE, cerramos
 		{
-			//std::cerr << RED << "CGI closed by error at readPipe" << RESET << std::endl;
+			std::cerr << RED << "CGI closed by error at readPipe" << RESET << std::endl;
 			kill(s_pipe_read->pid, SIGKILL);
 			sendInternalError(s_pipe_read->client_socket->socket_fd, server_context.map_fds);
-			UtilsCC::cleanCGI(server_context.epoll_fd, pids_it, server_context.map_fds);
+			UtilsCC::cleanCGI(server_context.epoll_fd, pids_it, server_context.map_fds, false);
 			server_context.map_pids.erase(pids_it);
 		}
 	}

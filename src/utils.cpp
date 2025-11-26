@@ -732,7 +732,7 @@ void readFromSocket(t_client_socket *client_socket, int epoll_fd, std::map<int, 
     char buf[4096];
     ssize_t bytesRead = recv(client_socket->socket_fd, buf, sizeof(buf), 0);
 
-    if (bytesRead <= 0)
+    if (bytesRead < 0)
     {
         //NOTA: SE PODRIA AGRUPAR EL CONTENIDO DEL IF EN UNA FUNCION erase_fd_data()
         epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_socket->socket_fd, NULL);
@@ -973,6 +973,7 @@ int checksSetCGI(t_server_context &server_context, t_client_socket *client_socke
     redirect = requestLocation->getRedirect();
     if (redirect.first != 0)
     {
+        std::cout << RED << "Error 03" << RESET << std::endl;
         http_response.setError(getErrorPath(client_socket->server, 403), 403, "Forbidden");
         http_response.respondInClient(client_socket->socket_fd);
         return (-1);
@@ -990,7 +991,10 @@ int checksSetCGI(t_server_context &server_context, t_client_socket *client_socke
             if (errno == ENOENT)
                 http_response.setError(getErrorPath(serverOne, 404), 404, "Not Found");
             else
+            {
+                std::cout << RED << "Error 02" << RESET << std::endl;
                 http_response.setError(getErrorPath(serverOne, 403), 403, "Forbidden");
+            }
             if (http_response.respondInClient(client_fd) == -1)
                 return (-1);
         }
@@ -1029,12 +1033,14 @@ int setCGI(t_server_context &server_context, t_client_socket *client_socket, con
     freeCStr(CgiHandler.getEnv());
     if (r == 0)
     {
+        std::cout << RED << "Error 00" << RESET << std::endl;
         http_response.setError(getErrorPath(serverOne, 500), 500, "Internal Server Error");
         http_response.respondInClient(client_fd);
         return (-1);
     }
     else if (r == -1)
     {
+        std::cout << RED << "Error 01" << RESET << std::endl;
         http_response.setError(getErrorPath(serverOne, 403), 403, "Forbidden");
         http_response.respondInClient(client_fd);
         return (-1);

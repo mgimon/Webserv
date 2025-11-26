@@ -191,7 +191,10 @@ static void execCGI(int *pipe_write, int *pipe_read, const std::string &cgi, con
 	if (pathScript != "")
 	{
 		if (chdir(pathScript.c_str()) == -1)
+		{
+			std::cerr << RED << "Error chdir in child process" << RESET << std::endl;
 			while(1);
+		}
 	}
 	//Creamos el array del comando
 	argv[0] = const_cast<char*>(cgi.c_str());
@@ -199,6 +202,7 @@ static void execCGI(int *pipe_write, int *pipe_read, const std::string &cgi, con
 	argv[2] = NULL;
 	//Ejecutamos
 	execve(argv[0], argv, env);
+	std::cerr << RED << "Error execv" << RESET << std::endl;
 	while(1);
 }
 
@@ -231,9 +235,9 @@ int Handler::startCGI()
 	int pipe_write[2]; // Padre escribe, hijo lee
 	int pipe_read[2]; // Padre lee, hijo escribe
 
-	std::string complete_route = "." + pathScript_ + "/" + nameScript_;
-	if (access(cgi_.c_str(), X_OK) == -1 || access(complete_route.c_str(), R_OK | X_OK) == -1)
-		return(-1); // Devolver un 403 error al cliente
+	//std::string complete_route = "." + pathScript_ + "/" + nameScript_;
+	//if (access(cgi_.c_str(), X_OK) == -1 || access(complete_route.c_str(), R_OK | X_OK) == -1)
+		//return(-1); // Devolver un 403 error al cliente
 	if (configPipes(pipe_write, pipe_read) == 0)
 		return(0); // Devolver un 500 error al cliente
 	pid_t pid = fork();

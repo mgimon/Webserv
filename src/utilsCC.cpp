@@ -98,7 +98,7 @@ void UtilsCC::closeServer(int epoll_fd, std::map<int, t_fd_data> &map_fds,
 
 // Version para limpiar la data cuando hay error
 void UtilsCC::cleanCGI(int epoll_fd ,std::map<pid_t, t_pid_context>::iterator &pid_it, 
-			  std::map<int, t_fd_data> &map_fds)
+			  std::map<int, t_fd_data> &map_fds, bool keepAlive)
 {
 	// Liberamos write pipe
 	if (!pid_it->second.write_finished)
@@ -121,13 +121,15 @@ void UtilsCC::cleanCGI(int epoll_fd ,std::map<pid_t, t_pid_context>::iterator &p
 	delete(static_cast<t_CGI_pipe_read*>(fds_pipe_read_it->second.data));
 	map_fds.erase(fds_pipe_read_it);
 	//Liberamos client
-	/*int client_fd = pid_it->second.client_socket_fd;
-	std::map<int, t_fd_data *>::iterator fds_client_it = map_fds.find(client_fd);
-	epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, NULL);
-	close(client_fd);
-	delete(fds_client_it->second->data);
-	delete(fds_client_it->second);
-	map_fds.erase(client_fd);*/
+	if (!keepAlive)
+	{
+		int client_fd = pid_it->second.client_socket_fd;
+		std::map<int, t_fd_data>::iterator fds_client_it = map_fds.find(client_fd);
+		epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, NULL);
+		close(client_fd);
+		delete(static_cast<t_client_socket*>(fds_client_it->second.data));
+		map_fds.erase(client_fd);
+	}
 
 }
 
