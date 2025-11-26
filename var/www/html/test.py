@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import sys
 import cgi
 import cgitb
+import html  # <--- este es el cambio
 
 # Habilita mensajes de error en el navegador
 cgitb.enable()
 
-print("Content-Type: text/html; charset=utf-8")
-print()
+data = sys.stdin.read()
 
-print("""
+print("Content-Type: text/html; charset=utf-8")
+print()  # línea vacía que separa headers del body
+
+print(f"""
 <!DOCTYPE html>
 <html>
 <head>
@@ -19,7 +23,12 @@ print("""
 </head>
 <body>
     <h1>¡CGI funcionando!</h1>
-    <p>Este es un test basico de un script Python ejecutado con CGI 😊</p>
+    <p>Este es un test básico de un script Python ejecutado con CGI 😊</p>
+    <h2>Contenido recibido por POST:</h2>
+    <pre>{html.escape(data)}</pre>
 </body>
 </html>
 """)
+
+
+

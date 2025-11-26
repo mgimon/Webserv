@@ -973,7 +973,6 @@ int checksSetCGI(t_server_context &server_context, t_client_socket *client_socke
     redirect = requestLocation->getRedirect();
     if (redirect.first != 0)
     {
-        std::cout << RED << "Error 03" << RESET << std::endl;
         http_response.setError(getErrorPath(client_socket->server, 403), 403, "Forbidden");
         http_response.respondInClient(client_socket->socket_fd);
         return (-1);
@@ -991,10 +990,7 @@ int checksSetCGI(t_server_context &server_context, t_client_socket *client_socke
             if (errno == ENOENT)
                 http_response.setError(getErrorPath(serverOne, 404), 404, "Not Found");
             else
-            {
-                std::cout << RED << "Error 02" << RESET << std::endl;
                 http_response.setError(getErrorPath(serverOne, 403), 403, "Forbidden");
-            }
             if (http_response.respondInClient(client_fd) == -1)
                 return (-1);
         }
@@ -1020,7 +1016,7 @@ int setCGI(t_server_context &server_context, t_client_socket *client_socket, con
     CgiHandler.setCgi(requestLocation->getPythonCGIExecutable());
     CgiHandler.setNameScript(getCgiScriptNameFromPath(http_request.getPath()));
     if (isLocation(serverOne, http_request.getPath()) == 1)
-        CgiHandler.setPathScript(getCgiScriptPathFromPath(http_request.getPath()));
+        CgiHandler.setPathScript( "." + getCgiScriptPathFromPath(http_request.getPath()));
     else
         CgiHandler.setPathScript(getCgiScriptPathFromPath(serverOne.getDocumentRoot() + http_request.getPath()));
     CgiHandler.setRequest(http_request.getMethod());
@@ -1033,14 +1029,12 @@ int setCGI(t_server_context &server_context, t_client_socket *client_socket, con
     freeCStr(CgiHandler.getEnv());
     if (r == 0)
     {
-        std::cout << RED << "Error 00" << RESET << std::endl;
         http_response.setError(getErrorPath(serverOne, 500), 500, "Internal Server Error");
         http_response.respondInClient(client_fd);
         return (-1);
     }
     else if (r == -1)
     {
-        std::cout << RED << "Error 01" << RESET << std::endl;
         http_response.setError(getErrorPath(serverOne, 403), 403, "Forbidden");
         http_response.respondInClient(client_fd);
         return (-1);
@@ -1049,7 +1043,7 @@ int setCGI(t_server_context &server_context, t_client_socket *client_socket, con
         return (0); // mantiene conexion abierta, iteracion posterior manejara el CGI
 }
 
-int respond(t_server_context &server_context, t_client_socket *client_socket, int client_fd, const HttpRequest &http_request, ServerConfig &serverOne)
+int respond(t_server_context &server_context, t_client_socket *client_socket, int client_fd, HttpRequest &http_request, ServerConfig &serverOne)
 {
     HttpResponse    http_response;
     int             keep_alive = checkConnectionClose(http_request, http_response);
@@ -1070,14 +1064,14 @@ int respond(t_server_context &server_context, t_client_socket *client_socket, in
     if (serveRedirect(http_request, serverOne, requestLocation, client_fd, http_response) == 1)
         return (0);
     // set CGI
-    if (http_request.getPath().find(".py") != std::string::npos)
+    if (http_request.getPath().find(".py") != std::string::npos && !isUpload(http_request))
     {
         if (locationMatchforRequest(http_request.getPath(), serverOne.getLocations())->getPythonCGIExecutable().empty())
         {
             http_response.setError(getErrorPath(serverOne, 403), 403, "Forbidden");
-            if (http_response.respondInClient(client_fd) == -1)
+            //if (http_response.respondInClient(client_fd) == -1)
                 return (-1);
-            return (keep_alive);
+           // return (keep_alive);
         }
         return (setCGI(server_context, client_socket, requestLocation, client_fd, http_request, http_response, serverOne));
     }
@@ -1086,7 +1080,11 @@ int respond(t_server_context &server_context, t_client_socket *client_socket, in
     if (method == "GET")
         return (serveGet(requestLocation, client_fd, http_request, http_response, serverOne));
     else if (method == "POST")
+    {
+        if (isUpload(http_request))
+            http_request.setPath(trimQueryString(http_request.getPath()));
         return (servePost(requestLocation, client_fd, http_request, http_response, serverOne));
+    }
     else if (method == "DELETE")
         return (serveDelete(requestLocation, client_fd, http_request, http_response, serverOne));
     else
