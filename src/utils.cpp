@@ -950,8 +950,66 @@ char **allocateCgiEnv(const LocationConfig *requestLocation, const HttpRequest &
     return (env);
 }
 
+int checksSetCGI(t_server_context &server_context, t_client_socket *client_socket, const LocationConfig *requestLocation, int client_fd, const HttpRequest &http_request, HttpResponse &http_response, ServerConfig &serverOne)
+{
+    std::string cleanPath;
+    std::pair<int, std::string> redirect;
+    (void)server_context;
+
+    if (!requestLocation)
+    {
+        http_response.setError(getErrorPath(client_socket->server, 404), 404, "Not Found");
+        http_response.respondInClient(client_socket->socket_fd);
+        return (-1);
+    }
+
+    if (!isMethodAllowed(requestLocation->getMethods(), http_request.getMethod()))
+    {
+        http_response.setError(getErrorPath(client_socket->server, 405), 405, "Method Not Allowed");
+        http_response.respondInClient(client_socket->socket_fd);
+        return (-1);
+    }
+
+    redirect = requestLocation->getRedirect();
+    if (redirect.first != 0)
+    {
+        http_response.setError(getErrorPath(client_socket->server, 403), 403, "Forbidden");
+        http_response.respondInClient(client_socket->socket_fd);
+        return (-1);
+    }
+
+    if (isLocation(serverOne, http_request.getPath()) == 1)
+        cleanPath = trimQueryString("." + http_request.getPath());
+    else
+        cleanPath = trimQueryString (serverOne.getDocumentRoot() + http_request.getPath());
+    
+    if (http_request.getMethod() == "GET" || http_request.getMethod() == "DELETE")
+    {
+        if (access(cleanPath.c_str(), F_OK) != 0)
+        {
+            if (errno == ENOENT)
+                http_response.setError(getErrorPath(serverOne, 404), 404, "Not Found");
+            else
+                http_response.setError(getErrorPath(serverOne, 403), 403, "Forbidden");
+            if (http_response.respondInClient(client_fd) == -1)
+                return (-1);
+        }
+    }
+    if (http_request.getMethod() == "POST" && http_request.getBody().size() > serverOne.getClientMaxBodySize())
+    {
+        http_response.setError(getErrorPath(client_socket->server, 413), 413, "Payload Too Large");
+        http_response.respondInClient(client_socket->socket_fd);
+        return (-1);
+    }
+    return (1);
+}
+
 int setCGI(t_server_context &server_context, t_client_socket *client_socket, const LocationConfig *requestLocation, int client_fd, const HttpRequest &http_request, HttpResponse &http_response, ServerConfig &serverOne)
 {
+
+    if (!checksSetCGI(server_context, client_socket, requestLocation, client_fd, http_request, http_response, serverOne))
+        return (-1);
+
     CGI::Handler CgiHandler;
 
     CgiHandler.setEnv(allocateCgiEnv(requestLocation, http_request, serverOne)); // recordar liberar
@@ -1035,15 +1093,83 @@ int respond(t_server_context &server_context, t_client_socket *client_socket, in
     }
 }
 
+int extractCgiStatus(std::string &sendBuffer)
+{
+    std::istringstream iss(sendBuffer);
+    std::string line;
+    std::string result;
+    int statusCode = 0;
+    bool firstLine = true;
+
+    while (std::getline(iss, line))
+    {
+        if (line.find("Status:") == 0)
+        {
+            std::istringstream statusLine(line.substr(7));
+            statusLine >> statusCode;
+            continue;
+        }
+        if (!firstLine) result += "\n";
+        result += line;
+        firstLine = false;
+    }
+
+    sendBuffer = result;
+    return (statusCode);
+}
+
+std::map<std::string, std::string> extractCgiHeaders(std::string &sendBuffer)
+{
+    std::istringstream iss(sendBuffer);
+    std::string line;
+    std::map<std::string, std::string> headers;
+    std::string result;
+    bool firstLine = true;
+    bool headersEnded = false;
+
+    while (std::getline(iss, line))
+    {
+        if (!headersEnded)
+        {
+            if (line.empty())
+            {
+                headersEnded = true;
+                continue;
+            }
+            std::size_t pos = line.find(':');
+            if (pos != std::string::npos)
+            {
+                std::string key = line.substr(0, pos);
+                std::string value = line.substr(pos + 1);
+                while (!value.empty() && (value[0] == ' ' || value[0] == '\t'))
+                    value.erase(0, 1);
+                headers[key] = value;
+                continue;
+            }
+            else
+                headersEnded = true;
+        }
+        if (!firstLine)
+            result += "\n";
+        result += line;
+        firstLine = false;
+    }
+
+    sendBuffer = result;
+    return (headers);
+}
+
+// TODO: Probar (con GET o POST formulario)
+// TODO: Entrar por respond normal si es POST-upload o DELETE (con.py) (debemos quitar la query string)
 int respondCGI(t_server_context &server_context, t_client_socket *client_socket)
 {
+    (void)server_context;
     HttpRequest http_request(client_socket->readBuffer);
     HttpResponse http_response;
-    std::string checkPath;
+    std::string buffer = client_socket->sendBuffer;
     int keep_alive = checkConnectionClose(http_request, http_response);
-    const std::string &method = http_request.getMethod();
+    //const std::string &method = http_request.getMethod();
     const LocationConfig *requestLocation = locationMatchforRequest(http_request.getPath(), client_socket->server.getLocations());
-    std::pair<int, std::string> redirect;
 
     if (!requestLocation)
     {
@@ -1053,33 +1179,35 @@ int respondCGI(t_server_context &server_context, t_client_socket *client_socket)
         return (keep_alive);
     }
 
-    redirect = requestLocation->getRedirect();
-    if (redirect.first != 0)
+    if (buffer.empty())
     {
-        http_response.setError(getErrorPath(client_socket->server, 403), 403, "Forbidden");
+        http_response.setError(getErrorPath(client_socket->server, 400), 400, "Bad Request");
         if (http_response.respondInClient(client_socket->socket_fd) == -1)
             return (-1);
         return (keep_alive);
     }
 
-    if (isLocation(client_socket->server, http_request.getPath()) == 1)
-        checkPath = trimQueryString("." + http_request.getPath());
-    else
-        checkPath = trimQueryString (client_socket->server.getDocumentRoot() + http_request.getPath());
-    if (access(checkPath.c_str(), F_OK) != 0)
+    int cgiStatus = extractCgiStatus(buffer); // elimina la linea Status del buffer
+
+    if (cgiStatus != 0 && cgiStatus != 200 && cgiStatus != 201) // habia CGI "Status: "
     {
-        if (errno == ENOENT)
-            http_response.setError(getErrorPath(client_socket->server, 404), 404, "Not Found");
-        else
-            http_response.setError(getErrorPath(client_socket->server, 403), 403, "Forbidden");
-        http_response.respondInClient(client_socket->socket_fd);
-        return (-1);
+        http_response.setError(getErrorPath(client_socket->server, cgiStatus), cgiStatus, "Error");
+        if (http_response.respondInClient(client_socket->socket_fd) == -1)
+            return (-1);
+        return (keep_alive);
+    }
+    else // no habia CGI "Status: "
+    {
+        std::map<std::string, std::string> headers = extractCgiHeaders(buffer); // quita las headers CGI
+        headers["Connection"] = keep_alive;
+        http_response.setResponse(200, buffer);
+        http_response.setHeaders(headers);
     }
 
-    // responder CGI segun metodos normales
-    // GET - devolver el archivo .py, si existe, transformado a HTML
-    // POST - Reciclar POST normal de respond
-    // DELETE - Reciclar DELETE normal de respond
+    if (http_response.respondInClient(client_socket->socket_fd) == -1)
+        return (-1);
+    return (keep_alive);
+
 }
 
 void removeConnection(t_client_socket *client_socket, int epoll_fd, std::map<int, t_fd_data> &map_fds)
@@ -1152,44 +1280,12 @@ void handleClientSocket(t_fd_data &fd_data, t_server_context &server_context, ep
         removeConnection(client_socket, server_context.epoll_fd, server_context.map_fds);    
         return ;
     }
+
     readFromSocket(client_socket, server_context.epoll_fd, server_context.map_fds);
     if (isCompleteRequest(client_socket->readBuffer))
     {
         HttpRequest http_request(client_socket->readBuffer);
         http_request.printRequest();
-        //CHECK CGI Y LLAMARLO SI HACE FALTA
-
-        /*NOTA: Hay que hacer que no se entre en response hasta que el processo del cgi este acabdo,
-        no se como hacerlo exactamente, la idea seria cambiar la config del epoll para que solo notifique 
-        eventos de error con el cliente hasta que el cgi haya acabado, y guardar la respuesta del cgi
-        en un buffer para asignarlo al body que devolvemos al cliente
-        */
-
-        /*
-        REQUEST_METHOD      GET                                 Método HTTP usado por el cliente
-        QUERY_STRING	    nombre=Juan&edad=30	                Todo lo que viene después del ? en la URL
-        CONTENT_LENGTH	    123	                                Longitud del cuerpo (si POST)
-        CONTENT_TYPE	    application/x-www-form-urlencoded	Tipo de datos enviados
-        SCRIPT_NAME	        /var/www/html/cgi-bin/test.py       Nombre del script CGI
-        PATH_INFO           ""
-        SERVER_NAME         localhost
-        SERVER_PORT         8080
-        SERVER_PROTOCOL     HTTP/1.0
-        SERVER_SOFTWARE     webserv/1.0
-        REMOTE_ADDR	        192.168.1.2	                        IP del cliente
-        REMOTE_PORT
-        HTTP_*              cabeceras http convertidas         
-        */
-
-        //DENTRO DE RESPOND
-        //if (http_request.getPath().find(".py") != std::string::npos && locationMatchforRequest(http_request.getPath(), client_socket->server.getLocations())->isCgi() == true)
-            //->entramos en respond-cgi
-                //if (!access http_request.getPath())
-                    //-> 403
-                //else
-                    //-> creamos el objeto CGI Handler y llamamos a startCGI
-        //else
-            //->respond normal y QSLQDQ
 
         if (respond(server_context, client_socket, client_socket->socket_fd, http_request, client_socket->server) == -1) // Client requests Connection:close, or Error
             removeConnection(client_socket, server_context.epoll_fd, server_context.map_fds);
@@ -1198,7 +1294,8 @@ void handleClientSocket(t_fd_data &fd_data, t_server_context &server_context, ep
     }
 }
 
-std::string normalizePathForMatch(const std::string &path) {
+std::string normalizePathForMatch(const std::string &path)
+{
     if (path.empty()) return "/";
     if (path[path.size() - 1] != '/')
         return (path + "/");
