@@ -151,8 +151,6 @@ static void createClientSocket(t_listen_socket *listen_socket, uint32_t &events,
 	sockaddr client_addr;
 	socklen_t client_addr_size = sizeof(client_addr);
 
-	listen_socket->server.print();
-	std::cerr << RED << "Print in createClientSocket" << RESET << std::endl;
 	if (events & EPOLLERR)
 	{
 		UtilsCC::closeServer(server_context.epoll_fd, server_context.map_fds, server_context.map_pids);

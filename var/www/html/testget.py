@@ -8,12 +8,7 @@ import html  # <--- este es el cambio
 import time
 
 # Habilita mensajes de error en el navegador
-cgitb.enable()
-
-#time.sleep(60)
-
-# data = sys.stdin.read()
-# <pre>{html.escape(data)}</pre>
+# cgitb.enable()
 
 print("Content-Type: text/html; charset=utf-8")
 print()  # línea vacía que separa headers del body
@@ -28,11 +23,9 @@ print(f"""
 <body>
     <h1>¡CGI funcionando!</h1>
     <p>Este es un test básico de un script Python ejecutado con CGI 😊</p>
-    <h2>Contenido recibido por POST:</h2>
 </body>
 </html>
 """)
-
 
 
 

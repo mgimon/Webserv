@@ -110,18 +110,12 @@ void validatePathWithIndex(std::string &path, const LocationConfig *requestLocat
         else
         {
             std::vector<std::string> indexfiles = requestLocation->getLocationIndexFiles();
-            std::cout << RED <<
-            "Printing files: ";
-            for (std::vector<std::string>::size_type i = 0; i < indexfiles.size(); ++i)
-                std::cout << indexfiles[i] << " ";
-            std::cout << RESET << std::endl;
             std::string root;
             if (!requestLocation->getRootOverride().empty())
                 root = requestLocation->getRootOverride();
             else
                 root = serverOne.getDocumentRoot();
             indexToServe = getFirstValidFile(requestLocation->getLocationIndexFiles(), root);
-            std::cout << RED << "Indextoserve is: " << indexToServe << RESET << std::endl;
         }
         
         path = indexToServe;
@@ -145,7 +139,7 @@ std::string getErrorPath(ServerConfig &serverOne, int errcode)
     if (!errorpath.empty() && errorpath[0] == '/')
         errorpath = errorpath.substr(1);
 
-    std::cout << RED << "Error path is " << errorpath << RESET << std::endl;
+    //std::cout << RED << "Error path is " << errorpath << RESET << std::endl;
     
     return (errorpath);
 }
@@ -1067,14 +1061,13 @@ int respond(t_server_context &server_context, t_client_socket *client_socket, in
     if (serveRedirect(http_request, serverOne, requestLocation, client_fd, http_response) == 1)
         return (0);
     // set CGI
-    if (http_request.getPath().find(".py") != std::string::npos && !isUpload(http_request))
+    if (http_request.getPath().find(".py") != std::string::npos && !isUpload(http_request) && http_request.getMethod() != "DELETE") // CGI, solo GET .py y POST no upload a .py
     {
         if (locationMatchforRequest(http_request.getPath(), serverOne.getLocations())->getPythonCGIExecutable().empty())
         {
             http_response.setError(getErrorPath(serverOne, 403), 403, "Forbidden");
-            //if (http_response.respondInClient(client_fd) == -1)
-                return (-1);
-           // return (keep_alive);
+            http_response.respondInClient(client_fd);
+            return (-1);
         }
         return (setCGI(server_context, client_socket, requestLocation, client_fd, http_request, http_response, serverOne));
         
@@ -1090,7 +1083,11 @@ int respond(t_server_context &server_context, t_client_socket *client_socket, in
         return (servePost(requestLocation, client_fd, http_request, http_response, serverOne));
     }
     else if (method == "DELETE")
+    {
+        if (http_request.getPath().find(".py") != std::string::npos)
+            http_request.setPath(trimQueryString(http_request.getPath()));
         return (serveDelete(requestLocation, client_fd, http_request, http_response, serverOne));
+    }
     else
     {
         std::cout << "Other method" << std::endl;
@@ -1282,7 +1279,6 @@ void handleClientSocket(t_fd_data &fd_data, uint32_t &events, t_server_context &
 {
     t_client_socket *client_socket = static_cast<t_client_socket *>(fd_data.data);
     client_socket->server.print();
-    std::cerr << RED << "Print in handleClientSocket" << RESET << std::endl;
     if (events & (EPOLLHUP | EPOLLERR))
     {
         if (client_socket->cgi)
