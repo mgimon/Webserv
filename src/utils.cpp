@@ -732,13 +732,16 @@ void readFromSocket(t_client_socket *client_socket, int epoll_fd, std::map<int, 
     char buf[4096];
     ssize_t bytesRead = recv(client_socket->socket_fd, buf, sizeof(buf), 0);
 
-    if (bytesRead < 0)
+    if (bytesRead <= 0)
     {
         //NOTA: SE PODRIA AGRUPAR EL CONTENIDO DEL IF EN UNA FUNCION erase_fd_data()
-        epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_socket->socket_fd, NULL);
-        close(client_socket->socket_fd);
-        map_fds.erase(client_socket->socket_fd);
-        delete(client_socket);
+        if (!client_socket->cgi)
+        {
+            epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_socket->socket_fd, NULL);
+            close(client_socket->socket_fd);
+            map_fds.erase(client_socket->socket_fd);
+            delete(client_socket);
+        }
         return;
     }
     // leido -> append
@@ -1074,6 +1077,7 @@ int respond(t_server_context &server_context, t_client_socket *client_socket, in
            // return (keep_alive);
         }
         return (setCGI(server_context, client_socket, requestLocation, client_fd, http_request, http_response, serverOne));
+        
     }
 
     // serve NORMAL REQUEST
@@ -1274,13 +1278,18 @@ std::string getCgiScriptPathFromPath(const std::string &path)
     return path.substr(0, slashPos);
 }
 
-void handleClientSocket(t_fd_data &fd_data, t_server_context &server_context, epoll_event (&events)[MAX_EVENTS], int i)
+void handleClientSocket(t_fd_data &fd_data, uint32_t &events, t_server_context &server_context)
 {
     t_client_socket *client_socket = static_cast<t_client_socket *>(fd_data.data);
     client_socket->server.print();
-
-    if (events[i].events & (EPOLLHUP | EPOLLERR))
+    if (events & (EPOLLHUP | EPOLLERR))
     {
+        if (client_socket->cgi)
+        {
+            std::map<pid_t, t_pid_context>::iterator pids_it = server_context.map_pids.find(client_socket->pid);
+            UtilsCC::cleanCGI(server_context.epoll_fd, pids_it, server_context.map_fds, false);
+		    server_context.map_pids.erase(pids_it);
+        }
         removeConnection(client_socket, server_context.epoll_fd, server_context.map_fds);    
         return ;
     }

@@ -25,14 +25,17 @@ typedef struct s_client_socket
 	ServerConfig&	server;
 	std::string		readBuffer;
 	std::string		sendBuffer;
-
+	bool			cgi;
+	pid_t pid;
 
 	//Constructor
 	s_client_socket(int fd, ServerConfig& srv) : 
         socket_fd(fd), 
         server(srv), // Inicializa la referencia correctamente
         readBuffer(""),
-		sendBuffer("") {}
+		sendBuffer(""),
+		cgi(false),
+		pid(-1) {}
 }	t_client_socket;
 
 typedef struct s_CGI_pipe_read
@@ -41,6 +44,7 @@ typedef struct s_CGI_pipe_read
 	pid_t pid;
 	t_client_socket *client_socket;
 
+	//Constructor
 	s_CGI_pipe_read(int fd_in, pid_t pid_CGI, t_client_socket *conexion_socket) : 
         fd(fd_in),
         pid(pid_CGI),
@@ -56,6 +60,7 @@ typedef struct s_CGI_pipe_write
 	pid_t pid;
 	t_client_socket *client_socket;
 
+	//Constructor
 	s_CGI_pipe_write(int fd_pipe, std::string body, int body_length, pid_t pid_CGI,
 	 				t_client_socket *conexion_socket) : 
         fd(fd_pipe),

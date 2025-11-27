@@ -116,20 +116,22 @@ void UtilsCC::cleanCGI(int epoll_fd ,std::map<pid_t, t_pid_context>::iterator &p
 	int pipe_read_fd = pid_it->second.pipe_read_fd;
 	std::map<int, t_fd_data>::iterator fds_pipe_read_it = map_fds.find(pipe_read_fd);
 
+	
 	epoll_ctl(epoll_fd, EPOLL_CTL_DEL, pipe_read_fd, NULL);
 	close(pipe_read_fd);
 	delete(static_cast<t_CGI_pipe_read*>(fds_pipe_read_it->second.data));
 	map_fds.erase(fds_pipe_read_it);
+	
 	//Liberamos client
 	if (!keepAlive)
 	{
 		int client_fd = pid_it->second.client_socket_fd;
-		std::map<int, t_fd_data>::iterator fds_client_it = map_fds.find(client_fd);
+		std::map<int, t_fd_data>::iterator fds_client_it = map_fds.find(client_fd);	
+		
 		epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, NULL);
 		close(client_fd);
 		delete(static_cast<t_client_socket*>(fds_client_it->second.data));
-		map_fds.erase(client_fd);
+		map_fds.erase(fds_client_it);
 	}
-
 }
 

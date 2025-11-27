@@ -31,7 +31,7 @@ namespace utils {
     int respondGet(ServerConfig &serverOne, int client_fd, std::string path, const HttpRequest &http_request, HttpResponse &http_response);
     int	respond(t_server_context &server_context, t_client_socket *client_socket, int client_fd, const HttpRequest &http_request, ServerConfig &serverOne);
     int respondCGI(t_server_context &server_context, t_client_socket *client_socket);
-    void handleClientSocket(t_fd_data &fd_data, t_server_context &server_context, epoll_event (&events)[MAX_EVENTS], int i);
+    void handleClientSocket(t_fd_data &fd_data, uint32_t &events, t_server_context &server_context);
 
     std::string generateAutoindexRoot(const std::string& Path, const std::string& directory);
     std::string generateAutoindexLocation(const std::string& dirPath);

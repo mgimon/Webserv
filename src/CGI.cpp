@@ -137,7 +137,7 @@ static int addPipeWrite(int pipe_write_fd, int pipe_read_fd, pid_t pid, std::str
 		if (data_inserted)	
 			server_context->map_fds.erase(pipe_write_fd);
 		kill(pid, SIGKILL); // Cerramos el proceso hijo
-		return (0); // Devolver un 500 error al cliente
+		return (0);
 	}
 	return(1);
 }
@@ -152,7 +152,7 @@ static int addPipeRead(int pipe_write_fd, int pipe_read_fd, pid_t pid, t_client_
 	{
 		s_pipe_read = new s_CGI_pipe_read(pipe_read_fd, pid, client_socket);
 		t_fd_data pipe_read_data = {s_pipe_read, CGI_PIPE_READ};
-		ev.events = EPOLLIN | EPOLLHUP | EPOLLERR;
+		ev.events = EPOLLIN | EPOLLERR;
 		ev.data.fd = pipe_read_fd;
 		if (epoll_ctl(server_context->epoll_fd, EPOLL_CTL_ADD, pipe_read_fd, &ev) == -1)
 			throw std::runtime_error(strerror(errno));
@@ -170,7 +170,7 @@ static int addPipeRead(int pipe_write_fd, int pipe_read_fd, pid_t pid, t_client_
 		if (s_pipe_read != NULL)
 			delete(s_pipe_read);
 		kill(pid, SIGKILL); //Cerramos el proceso hijo
-		return (0); // Devolver un 500 error al cliente
+		return (0);
 	}
 	return(1);
 }
@@ -239,13 +239,13 @@ int Handler::startCGI()
 	//if (access(cgi_.c_str(), X_OK) == -1 || access(complete_route.c_str(), R_OK | X_OK) == -1)
 		//return(-1); // Devolver un 403 error al cliente
 	if (configPipes(pipe_write, pipe_read) == 0)
-		return(0); // Devolver un 500 error al cliente
+		return(0);
 	pid_t pid = fork();
 	if (pid == -1)
 	{
 		closePipe(pipe_write);
 		closePipe(pipe_read);
-		return (0); // Devolver un 500 error al cliente
+		return (0);
 	}
 	if (pid == 0) // Child process
 		execCGI(pipe_write, pipe_read, cgi_, nameScript_, pathScript_, env_);
@@ -276,9 +276,11 @@ int Handler::startCGI()
 			//Liberamos el read pipe
 			cleanReadPipe(pipe_read[0], server_context_);
 			kill(pid, SIGKILL); // Cerramos el proceso hijo
-			return (0); // Devolver un 500 error al cliente
+			return (0);
 		}
 	}
+	client_socket_->cgi = true;
+	client_socket_->pid = pid;
 	return(1);
 }
 

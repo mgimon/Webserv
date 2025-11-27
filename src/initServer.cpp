@@ -75,7 +75,7 @@ static void addListenSocket(int epoll_fd, int socket_fd, ServerConfig &server, s
 		t_fd_data fd_data = {socket, LISTEN_SOCKET};
 		// NOTA: MIRAR POSIBLE IMPLEMENTACION DE edge-triggered epoll(EPOLLET), posible mejora de rendimiento
 		// Añadimos el socket al epoll
-		ev.events = EPOLLIN; // Para que epoll nos notifique cuando se intente leer del fd (aceptar una conexion cuenta como leer)
+		ev.events = EPOLLIN | EPOLLERR; // Para que epoll nos notifique cuando se intente leer del fd (aceptar una conexion cuenta como leer)
 		ev.data.fd = socket_fd;
 		if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, socket_fd, &ev) == -1)
 			throw std::runtime_error(strerror(errno));
@@ -145,20 +145,26 @@ static void addClientSocket(int epoll_fd, int client_fd, ServerConfig &server, s
 	}
 }
 
-static void createClientSocket(t_listen_socket *listen_socket, int epoll_fd, std::map<int, t_fd_data> &map_fds)
+static void createClientSocket(t_listen_socket *listen_socket, uint32_t &events, t_server_context &server_context)
 {
 	//Procesamos todas las peticiones al client socket
 	sockaddr client_addr;
 	socklen_t client_addr_size = sizeof(client_addr);
 
 	listen_socket->server.print();
+	std::cerr << RED << "Print in createClientSocket" << RESET << std::endl;
+	if (events & EPOLLERR)
+	{
+		UtilsCC::closeServer(server_context.epoll_fd, server_context.map_fds, server_context.map_pids);
+		throw std::runtime_error(strerror(errno));
+	}
 	int client_fd = accept(listen_socket->socket_fd, &client_addr, &client_addr_size); // Al aceptar la conexion, se crea socket especifico para este cliente
 	//if (client_fd == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) Error muy especifico para un level triggered epoll (nivel que falle un write),
 	//																	no se si ponerlo porque no se necesario y no se si el subject lo permite
 	//	return;
 	if (client_fd == -1)
 	{
-		UtilsCC::closeServer(epoll_fd, map_fds);
+		UtilsCC::closeServer(server_context.epoll_fd, server_context.map_fds, server_context.map_pids);
 		throw std::runtime_error(strerror(errno));
 	}
 
@@ -167,7 +173,7 @@ static void createClientSocket(t_listen_socket *listen_socket, int epoll_fd, std
 		close(client_fd);
 		return;
 	}
-	addClientSocket(epoll_fd, client_fd, listen_socket->server, map_fds);
+	addClientSocket(server_context.epoll_fd, client_fd, listen_socket->server, server_context.map_fds);
 }
 
 bool addFlagToEpollFd(int epoll_fd)
@@ -185,11 +191,12 @@ void initServer(std::vector<ServerConfig> &serverList)
 {
 	std::map<int, t_fd_data> map_fds;
 	std::map<pid_t, t_pid_context> map_pids;
-	//NOTA: HACER EPOLL_FD FD_CLOEXEC
+
 	int epoll_fd = epoll_create(1);
 	if (epoll_fd == -1 || !addFlagToEpollFd(epoll_fd))
 		throw std::runtime_error(strerror(errno));
- 	loadListenSockets(serverList, epoll_fd, map_fds);
+ 	
+	loadListenSockets(serverList, epoll_fd, map_fds);
 	
 	epoll_event events[MAX_EVENTS];
 	t_server_context server_context = {epoll_fd, map_fds, map_pids};
@@ -222,9 +229,9 @@ void initServer(std::vector<ServerConfig> &serverList)
 
 			t_fd_data fd_data = it->second;
 			if (fd_data.type == LISTEN_SOCKET)
-				createClientSocket(static_cast<t_listen_socket *>(fd_data.data), epoll_fd, map_fds);
+				createClientSocket(static_cast<t_listen_socket *>(fd_data.data), events[i].events, server_context);
 			else if (fd_data.type == CLIENT_SOCKET)
-				utils::handleClientSocket(fd_data, server_context, events, i);
+				utils::handleClientSocket(fd_data, events[i].events, server_context);
 			else if (fd_data.type == CGI_PIPE_WRITE)
 				CGIHandler::writeInPipe(static_cast<t_CGI_pipe_write *>(fd_data.data), events[i].events, server_context);
 			else if (fd_data.type == CGI_PIPE_READ)

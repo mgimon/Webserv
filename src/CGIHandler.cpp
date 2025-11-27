@@ -33,12 +33,12 @@ void CGIHandler::monitor(int epoll_fd, std::map<int, t_fd_data> &map_fds, std::m
 	}
 }
 
-void CGIHandler::writeInPipe(t_CGI_pipe_write *s_pipe_write, uint32_t &event, t_server_context &server_context)
+void CGIHandler::writeInPipe(t_CGI_pipe_write *s_pipe_write, uint32_t &events, t_server_context &server_context)
 {
 	std::map<pid_t, t_pid_context>::iterator pids_it = server_context.map_pids.find(s_pipe_write->pid);
 
 	//Si la pipe se ha cerrado antes de acabar de escribir limpiamos
-	if (event & (EPOLLHUP | EPOLLERR))
+	if (events & (EPOLLHUP | EPOLLERR))
 	{
 		std::cerr << RED << "CGI closed by error at writePipe" << RESET << std::endl;
 		kill(s_pipe_write->pid, SIGKILL);
@@ -68,18 +68,13 @@ void CGIHandler::writeInPipe(t_CGI_pipe_write *s_pipe_write, uint32_t &event, t_
 		server_context.map_fds.erase(s_pipe_write->fd);
 		delete(s_pipe_write);
 	}
-	
-	// NOTA IMPORTANTE: No se que pasa si el content length es 0, no se si es posible y no lo he controlado, 
-	// mirar por si acaso. Tambien, en este codigo se da por hecho que content-length es el tamano del body limpio.
-	// Confirmar que es asi lo del content-length
 }
 
-void CGIHandler::readFromPipe(t_CGI_pipe_read *s_pipe_read, uint32_t &event, t_server_context &server_context)
+void CGIHandler::readFromPipe(t_CGI_pipe_read *s_pipe_read, uint32_t &events, t_server_context &server_context)
 {
 	std::map<pid_t, t_pid_context>::iterator pids_it = server_context.map_pids.find(s_pipe_read->pid);
-	(void)event;
 	//Mirar que hacer cuabo se cierra la pipe pero no hemos acabdod e excribir, logica del error leyendo
-	/*if (event & (EPOLLHUP | EPOLLERR))
+	if (events & EPOLLERR)
 	{
 		std::cerr << RED << "CGI closed by error at readPipe" << RESET << std::endl;
 		kill(s_pipe_read->pid, SIGKILL);
@@ -87,7 +82,7 @@ void CGIHandler::readFromPipe(t_CGI_pipe_read *s_pipe_read, uint32_t &event, t_s
 		UtilsCC::cleanCGI(server_context.epoll_fd, pids_it, server_context.map_fds, false);
 		server_context.map_pids.erase(pids_it);
 		return;
-	}*/
+	}
 	pids_it->second.time = 0;
 	
 	char buf[4096];
@@ -110,7 +105,15 @@ void CGIHandler::readFromPipe(t_CGI_pipe_read *s_pipe_read, uint32_t &event, t_s
 		if (pids_it->second.write_finished /*&& isCompleteRequest(s_pipe_read->client_socket->readBuffer*/)
 		{
 			int keepAlive = utils::respondCGI(server_context, s_pipe_read->client_socket);
-			UtilsCC::cleanCGI(server_context.epoll_fd, pids_it, server_context.map_fds, !keepAlive);
+			if (keepAlive == -1)
+				UtilsCC::cleanCGI(server_context.epoll_fd, pids_it, server_context.map_fds, false);
+			else
+			{
+				s_pipe_read->client_socket->cgi = false;
+				s_pipe_read->client_socket->readBuffer.clear();
+				s_pipe_read->client_socket->sendBuffer.clear();
+				UtilsCC::cleanCGI(server_context.epoll_fd, pids_it, server_context.map_fds, true);
+			}
 			server_context.map_pids.erase(pids_it);
 		}
 		else // Se ha acabdo de leer antes de acabar de escribir o la request no esta acabada pero se ha acbado de leer. ERROR LOGICO GRAVE, cerramos
@@ -123,3 +126,66 @@ void CGIHandler::readFromPipe(t_CGI_pipe_read *s_pipe_read, uint32_t &event, t_s
 		}
 	}
 }
+
+
+
+
+/* 
+#define CGI_TIMEOUT_SECONDS 5 // Constante definida para el límite de tiempo
+
+void CGIHandler::monitor(long current_time, int epoll_fd, std::map<int, t_fd_data> &map_fds, std::map<pid_t, t_pid_context> &map_pids)
+{
+    std::map<pid_t, t_pid_context>::iterator pids_it = map_pids.begin();
+    while (pids_it != map_pids.end())
+    {
+        int client_fd = pids_it->second.client_socket_fd;
+        std::map<int, t_fd_data>::iterator client_it = map_fds.find(client_fd);
+        
+        bool client_found = (client_it != map_fds.end());
+        bool timeout = (current_time - pids_it->second.start_time >= CGI_TIMEOUT_SECONDS);
+        bool client_wants_cleanup = false;
+
+        // 1. Obtener el estado de desconexión del cliente si aún existe en map_fds
+        if (client_found)
+        {
+            t_client_socket* client_data = static_cast<t_client_socket*>(client_it->second.data);
+            
+            // Si el cliente se desconectó, es una condición para limpiar.
+            if (client_data->disconnected == true)
+                client_wants_cleanup = true;
+        }
+
+        // 2. Condición de limpieza unificada (Timeout O Cliente Desconectado)
+        if (timeout || client_wants_cleanup || !client_found)
+        {
+            // Determinar la causa del cierre para el mensaje
+            std::string reason;
+            if (timeout)
+                reason = "TimeOut";
+            else if (client_wants_cleanup)
+                reason = "Client Closed";
+            else
+                reason = "Internal Error (FD lost)"; // Esto solo debería ocurrir si hay un fallo lógico
+
+            std::cerr << "CGI closed by CGIMonitor: " << reason << std::endl;
+            
+            // 3. Matar el proceso y enviar error HTTP al cliente (si es posible)
+            kill(pids_it->first, SIGKILL);
+            sendInternalError(client_fd, map_fds); // Esta función debe manejar si el FD ya no existe
+            
+            // 4. Limpieza final de recursos (pipes, flag CGI, y potencialmente el socket)
+            UtilsCC::cleanCGI(epoll_fd, pids_it, map_fds, false);
+            
+            // 5. Eliminar la entrada del PID del mapa
+            std::map<pid_t, t_pid_context>::iterator aux_it = pids_it;
+            ++pids_it;
+            map_pids.erase(aux_it);
+        }
+        else
+        {
+            // Si no hay necesidad de limpieza, solo avanzamos
+            ++pids_it;
+        }
+    }
+}
+*/
