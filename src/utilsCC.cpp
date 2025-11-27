@@ -26,6 +26,37 @@ bool UtilsCC::addFlagsFd(int fd)
 	return(true);
 }
 
+void UtilsCC::monitorKA(int epoll_fd, std::map<int, t_fd_data> &map_fds)
+{
+	std::map<int, t_fd_data>::iterator fds_it = map_fds.begin();
+	while (fds_it != map_fds.end())
+	{
+		if (fds_it->second.type == CLIENT_SOCKET)
+		{
+			t_client_socket *client_socket = static_cast<t_client_socket *>(fds_it->second.data);
+			bool timeout = (time(NULL) - client_socket->last_activity_time >= KEEPALIVE_TIMEOUT);
+			if (timeout && !client_socket->cgi)
+			{
+				std::cerr << RED << "Conexion closed by TimeOut" << RESET << std::endl;
+				epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_socket->socket_fd, NULL);
+				close(client_socket->socket_fd);
+				delete(client_socket);
+				std::map<int, t_fd_data>::iterator aux_it = fds_it;
+				++fds_it;
+				map_fds.erase(aux_it);
+			}
+			else
+			{
+				++fds_it;
+			}
+		}
+		else
+		{
+			++fds_it;
+		}
+	}
+}
+
 // Version para cerrar si hay error mientras creamos listen sockets 
 void UtilsCC::closeServer(int epoll_fd, std::map<int, t_fd_data> &map_fds)
 {

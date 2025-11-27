@@ -120,7 +120,7 @@ static int addPipeWrite(int pipe_write_fd, int pipe_read_fd, pid_t pid, std::str
 		epoll_inserted = true;
 		data_inserted = server_context->map_fds.insert(std::make_pair(pipe_write_fd, pipe_write_data)).second;
 		
-		t_pid_context pid_context = {0, pipe_write_fd, pipe_read_fd, client_socket->socket_fd, false};
+		t_pid_context pid_context = {time(NULL), pipe_write_fd, pipe_read_fd, client_socket->socket_fd, false};
 		server_context->map_pids.insert(std::make_pair(pid, pid_context));
 	}
 	catch(const std::exception& e)
@@ -267,7 +267,7 @@ int Handler::startCGI()
 		close(pipe_write[1]);
 		try
 		{
-			t_pid_context pid_context = {0, -1, pipe_read[0], client_socket_->socket_fd, true};
+			t_pid_context pid_context = {time(NULL), -1, pipe_read[0], client_socket_->socket_fd, true};
 			server_context_->map_pids.insert(std::make_pair(pid, pid_context));
 		}
 		catch(const std::exception& e)

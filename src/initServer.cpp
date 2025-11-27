@@ -207,8 +207,9 @@ void initServer(std::vector<ServerConfig> &serverList)
 	while(Signals::running)
 	{
 		CGIHandler::monitor(epoll_fd, map_fds, map_pids);
+		UtilsCC::monitorKA(epoll_fd, map_fds);
 		
-		int n_events = epoll_wait(epoll_fd, events, MAX_EVENTS, 100);
+		int n_events = epoll_wait(epoll_fd, events, MAX_EVENTS, 500);
 		if (n_events == -1)
 		{
 			// Si se recibe la señal para cerrar el server, sal del bucle de forma controlada y si Signals::running se ha cambiado se cverrara el servidor 

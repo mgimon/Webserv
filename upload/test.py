@@ -12,7 +12,8 @@ cgitb.enable()
 
 #time.sleep(60)
 
-data = sys.stdin.read()
+# data = sys.stdin.read()
+# <pre>{html.escape(data)}</pre>
 
 print("Content-Type: text/html; charset=utf-8")
 print()  # línea vacía que separa headers del body
@@ -28,7 +29,6 @@ print(f"""
     <h1>¡CGI funcionando!</h1>
     <p>Este es un test básico de un script Python ejecutado con CGI 😊</p>
     <h2>Contenido recibido por POST:</h2>
-    <pre>{html.escape(data)}</pre>
 </body>
 </html>
 """)

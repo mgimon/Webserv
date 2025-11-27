@@ -15,7 +15,10 @@ void CGIHandler::monitor(int epoll_fd, std::map<int, t_fd_data> &map_fds, std::m
 	std::map<pid_t, t_pid_context>::iterator pids_it = map_pids.begin();
 	while (pids_it != map_pids.end())
 	{
-		if (pids_it->second.time >= 50)
+		//Posible implemenatcion de flag cuando la conexion se cierra para notificarlo
+		//Posible mplementacion d etimer extar para mira el total que lleva el proceso abierto
+		bool timeout = (time(NULL) - pids_it->second.last_activity_time >= CGI_TIMEOUT);
+		if (timeout)
 		{
 			std::cerr << RED << "CGI closed by TimeOut" << RESET << std::endl;
 			kill(pids_it->first, SIGKILL);
@@ -27,7 +30,6 @@ void CGIHandler::monitor(int epoll_fd, std::map<int, t_fd_data> &map_fds, std::m
 		}
 		else
 		{
-			pids_it->second.time++;
 			++pids_it;
 		}
 	}
@@ -47,7 +49,7 @@ void CGIHandler::writeInPipe(t_CGI_pipe_write *s_pipe_write, uint32_t &events, t
 		server_context.map_pids.erase(pids_it);
 		return;
 	}
-	pids_it->second.time = 0;
+	pids_it->second.last_activity_time = time(NULL);
 	//Calcular cuanto vamos a enviar
 	size_t remaining = s_pipe_write->content_length - s_pipe_write->sended;
 	size_t send_length = (remaining >= 4096) ? 4096 : remaining;
@@ -83,7 +85,7 @@ void CGIHandler::readFromPipe(t_CGI_pipe_read *s_pipe_read, uint32_t &events, t_
 		server_context.map_pids.erase(pids_it);
 		return;
 	}
-	pids_it->second.time = 0;
+	pids_it->second.last_activity_time = time(NULL);
 	
 	char buf[4096];
     ssize_t bytesRead = read(s_pipe_read->fd, buf, sizeof(buf));
@@ -112,6 +114,7 @@ void CGIHandler::readFromPipe(t_CGI_pipe_read *s_pipe_read, uint32_t &events, t_
 				s_pipe_read->client_socket->cgi = false;
 				s_pipe_read->client_socket->readBuffer.clear();
 				s_pipe_read->client_socket->sendBuffer.clear();
+				s_pipe_read->client_socket->last_activity_time = time(NULL);
 				UtilsCC::cleanCGI(server_context.epoll_fd, pids_it, server_context.map_fds, true);
 			}
 			server_context.map_pids.erase(pids_it);

@@ -27,7 +27,7 @@ print(f"""
 <body>
     <h1>¡CGI funcionando!</h1>
     <p>Este es un test básico de un script Python ejecutado con CGI 😊</p>
-    <h2>Contenido recibido por POST:</h2>
+    <h2>Contenido recibido:</h2>
     <pre>{html.escape(data)}</pre>
 </body>
 </html>

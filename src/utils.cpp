@@ -1282,6 +1282,7 @@ void handleClientSocket(t_fd_data &fd_data, uint32_t &events, t_server_context &
 {
     t_client_socket *client_socket = static_cast<t_client_socket *>(fd_data.data);
     client_socket->server.print();
+    std::cerr << RED << "Print in handleClientSocket" << RESET << std::endl;
     if (events & (EPOLLHUP | EPOLLERR))
     {
         if (client_socket->cgi)
@@ -1293,7 +1294,6 @@ void handleClientSocket(t_fd_data &fd_data, uint32_t &events, t_server_context &
         removeConnection(client_socket, server_context.epoll_fd, server_context.map_fds);    
         return ;
     }
-
     readFromSocket(client_socket, server_context.epoll_fd, server_context.map_fds);
     if (isCompleteRequest(client_socket->readBuffer))
     {
@@ -1303,7 +1303,10 @@ void handleClientSocket(t_fd_data &fd_data, uint32_t &events, t_server_context &
         if (respond(server_context, client_socket, client_socket->socket_fd, http_request, client_socket->server) == -1) // Client requests Connection:close, or Error
             removeConnection(client_socket, server_context.epoll_fd, server_context.map_fds);
         else
+        {
+            client_socket->last_activity_time = time(NULL);
             client_socket->readBuffer.clear();
+        }
     }
 }
 

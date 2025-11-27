@@ -10,6 +10,8 @@
 #include <cerrno>
 
 #define MAX_EVENTS 512
+#define CGI_TIMEOUT 10 //seconds
+#define KEEPALIVE_TIMEOUT 15
 
 enum FDType 
 {
@@ -23,6 +25,7 @@ typedef struct s_client_socket
 {
 	int				socket_fd;
 	ServerConfig&	server;
+	time_t 			last_activity_time;
 	std::string		readBuffer;
 	std::string		sendBuffer;
 	bool			cgi;
@@ -31,7 +34,8 @@ typedef struct s_client_socket
 	//Constructor
 	s_client_socket(int fd, ServerConfig& srv) : 
         socket_fd(fd), 
-        server(srv), // Inicializa la referencia correctamente
+        server(srv),
+		last_activity_time(time(NULL)),
         readBuffer(""),
 		sendBuffer(""),
 		cgi(false),
@@ -91,7 +95,7 @@ typedef struct s_fd_data
 
 typedef struct s_pid_context 
 {
-	int time;
+	time_t last_activity_time;
 	int pipe_write_fd;
 	int pipe_read_fd;
 	int client_socket_fd;
