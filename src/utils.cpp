@@ -1346,7 +1346,6 @@ void handleClientSocket(t_fd_data &fd_data, uint32_t &events, t_server_context &
             std::string body = unchunkedBody(http_request.getBody());
             http_request.setBody(body);
         }
-        http_request.printRequest();
 
         if (respond(server_context, client_socket, client_socket->socket_fd, http_request, client_socket->server) == -1) // Client requests Connection:close, or Error
             removeConnection(client_socket, server_context.epoll_fd, server_context.map_fds);
