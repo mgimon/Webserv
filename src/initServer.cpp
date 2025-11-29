@@ -73,7 +73,6 @@ static void addListenSocket(int epoll_fd, int socket_fd, ServerConfig &server, s
 	{
 		socket = new t_listen_socket(socket_fd, server);
 		t_fd_data fd_data = {socket, LISTEN_SOCKET};
-		// NOTA: MIRAR POSIBLE IMPLEMENTACION DE edge-triggered epoll(EPOLLET), posible mejora de rendimiento
 		// Añadimos el socket al epoll
 		ev.events = EPOLLIN | EPOLLERR; // Para que epoll nos notifique cuando se intente leer del fd (aceptar una conexion cuenta como leer)
 		ev.data.fd = socket_fd;
@@ -157,9 +156,6 @@ static void createClientSocket(t_listen_socket *listen_socket, uint32_t &events,
 		throw std::runtime_error(strerror(errno));
 	}
 	int client_fd = accept(listen_socket->socket_fd, &client_addr, &client_addr_size); // Al aceptar la conexion, se crea socket especifico para este cliente
-	//if (client_fd == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) Error muy especifico para un level triggered epoll (nivel que falle un write),
-	//																	no se si ponerlo porque no se necesario y no se si el subject lo permite
-	//	return;
 	if (client_fd == -1)
 	{
 		UtilsCC::closeServer(server_context.epoll_fd, server_context.map_fds, server_context.map_pids);

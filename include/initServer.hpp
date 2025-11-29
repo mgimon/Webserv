@@ -83,7 +83,7 @@ typedef struct s_listen_socket
 	//Constructor
 	s_listen_socket(int fd, ServerConfig& srv) : 
         socket_fd(fd), 
-        server(srv) {} // Inicializa la referencia correctamente
+        server(srv) {}
 }	t_listen_socket;
 
 typedef struct s_fd_data
