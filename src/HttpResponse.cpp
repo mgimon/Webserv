@@ -176,7 +176,7 @@ int HttpResponse::respondInClient(int client_fd)
         response << it->first << ": " << it->second << "\r\n";
     response << "\r\n" << this->getBody();
 
-    if (write(client_fd, response.str().c_str(), response.str().size()) == -1)
+    if (write(client_fd, response.str().c_str(), response.str().size()) < 1)
         return (std::cerr << RED << "Write failed writing in client fd" << RESET << std::endl, -1);
     return (1);
 }

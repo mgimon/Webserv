@@ -449,7 +449,7 @@ int serveUpload(const LocationConfig *requestLocation, int client_fd, const Http
         {
             std::string body = http_request.getBody();
             trimWebKitFormBoundary(body);
-            if (write(fd, body.c_str(), body.size()) == -1)
+            if (write(fd, body.c_str(), body.size()) < 1)
             {
                 close(fd);
                 http_response.setError(getErrorPath(serverOne, 500), 500, "Upload Unavailable");
@@ -469,7 +469,7 @@ int serveUpload(const LocationConfig *requestLocation, int client_fd, const Http
             "\r\n" +
             body;
 
-        if (send(client_fd, response.c_str(), response.size(), 0) == -1)
+        if (send(client_fd, response.c_str(), response.size(), 0) < 1)
             return (std::cerr << RED << "Send failed writing in client fd" << RESET << std::endl, -1);
         //http_response.respondInClient(client_fd);
         return (-1);
@@ -512,7 +512,7 @@ int servePost(const LocationConfig *requestLocation, int client_fd, const HttpRe
             "\r\n" +
             body;
 
-        if (send(client_fd, response.c_str(), response.size(), 0) == -1)
+        if (send(client_fd, response.c_str(), response.size(), 0) < 1)
             return (std::cerr << RED << "Send failed writing in client fd" << RESET << std::endl, -1);
         //http_response.respondInClient(client_fd);
         return (-1);
@@ -1275,6 +1275,52 @@ std::string getCgiScriptPathFromPath(const std::string &path)
     return path.substr(0, slashPos);
 }
 
+std::string unchunkedBody(const std::string &body)
+{
+    std::string result;
+    std::size_t pos = 0;
+
+    /*std::cout << "Body hexdump:\n";
+    for (size_t i = 0; i < body.size(); ++i)
+        printf("%02X ", (unsigned char)body[i]);
+    std::cout << "\n";*/
+
+    while (pos < body.size())
+    {
+        // Encontrar fin de linea de hex size
+        std::size_t line_end = body.find("\r\n", pos);
+        if (line_end == std::string::npos)
+            break;
+
+        // Obtener pasar a decimal, 0 es fin
+        std::string size_str = body.substr(pos, line_end - pos);
+        long chunk_size = strtol(size_str.c_str(), NULL, 16);
+        if (chunk_size == 0)
+            break;
+
+        pos = line_end + 2;
+        if (pos + chunk_size > body.size())
+            break;
+
+        result.append(body.substr(pos, chunk_size));
+        pos = pos + chunk_size + 2;
+    }
+
+    return result;
+}
+
+bool isChunked(const HttpRequest &http_request)
+{
+    std::map<std::string, std::string> headers = http_request.getHeaders();
+
+    for (std::map<std::string, std::string>::iterator it = headers.begin(); it != headers.end(); ++it)
+    {
+        if ((it->first.find("Transfer-Encoding") != std::string::npos) && (it->second == "chunked" || it->second == "Chunked"))
+            return (true);
+    }
+    return (false);
+}
+
 void handleClientSocket(t_fd_data &fd_data, uint32_t &events, t_server_context &server_context)
 {
     t_client_socket *client_socket = static_cast<t_client_socket *>(fd_data.data);
@@ -1294,6 +1340,12 @@ void handleClientSocket(t_fd_data &fd_data, uint32_t &events, t_server_context &
     if (isCompleteRequest(client_socket->readBuffer))
     {
         HttpRequest http_request(client_socket->readBuffer);
+        http_request.printRequest();
+        if (isChunked(http_request))
+        {
+            std::string body = unchunkedBody(http_request.getBody());
+            http_request.setBody(body);
+        }
         http_request.printRequest();
 
         if (respond(server_context, client_socket, client_socket->socket_fd, http_request, client_socket->server) == -1) // Client requests Connection:close, or Error
