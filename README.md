@@ -1,7 +1,7 @@
 
 # About Webserv
 
-This project implements a non-blocking HTTP server in C++, capable of serving multiple clients on multiple ports. Configuration is handled through a Nginx-style file, allowing customization of server behavior.
+This project implements a non-blocking HTTP server in C++, configurable through an Nginx-style file that allows customization of server behavior. The server must be non-blocking and able to handle multiple clients concurrently across multiple ports.
 
 <br>
 
