@@ -1,8 +1,7 @@
 
 # About Webserv
 
-"Webserv" is a project focused on implementing a fully functional HTTP server using C++.  
-It offers the opportunity to understand how HTTP operates internally, how browsers request resources, and how a server manages non-blocking connections, requests, and responses according to the protocol.
+This project implements a non-blocking HTTP server in C++, capable of serving multiple clients on multiple ports. Configuration is handled through a Nginx-style file, allowing customization of server behavior.
 
 <br>
 
