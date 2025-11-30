@@ -8,7 +8,7 @@ It offers the opportunity to understand how HTTP operates internally, how browse
 
 ![webserv](./upload/webserv.png)
 
-
+<br>
 
 ## 🟠 Overview
 
@@ -23,7 +23,7 @@ It covers advanced concepts including:
 - CGI execution  
 - correct handling of HTTP protocol and status codes  
 
-
+<br>
 
 ## 🟠 Requirements
 
@@ -42,7 +42,7 @@ The server must:
 - Support at least **one CGI** (e.g., php-cgi, Python).  
 - Remain stable under **stress testing** — no crashes, no blocking, no hangs.
 
-
+<br>
 
 ## 🟠 Configuration file
 
@@ -62,7 +62,7 @@ It must be able to configure:
   - file upload location  
   - CGI execution based on file extension  
 
-
+<br>
 
 ## 🟠 Compilation
 
