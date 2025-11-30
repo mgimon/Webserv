@@ -86,6 +86,8 @@ or any other custom configuration file
 
 ## 🔄 You may also like...
 
+This project was developed in collaboration with <a href="https://github.com/DavidOrtegaGarcia">daortega</a> and <a href="https://github.com/alphbarry">alphbarry</a>.
+
 [-> My profile on the 42 Intranet](https://profile.intra.42.fr/users/mgimon-c)
 
 [-> My LinkedIn profile](https://www.linkedin.com/in/mgimon-c/)
