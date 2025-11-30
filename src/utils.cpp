@@ -35,7 +35,6 @@ std::string getFirstValidFile(std::vector<std::string> files, const std::string 
     for (std::vector<std::string>::iterator it = files.begin(); it != files.end(); ++it)
     {
         std::ifstream file((root + "/" + *it).c_str());
-        //std::cout << PINK << "Trying " << (root + "/" + *it) << RESET << std::endl;
         if (file.good())
             return (*it);
     }
@@ -130,7 +129,6 @@ void validatePathWithIndex(std::string &path, const LocationConfig *requestLocat
     if (path[0] == '/')
         path = path.substr(1);
 
-    //std::cout << YELLOW << "Path is " << path << RESET << std::endl;
 }
 
 std::string getErrorPath(ServerConfig &serverOne, int errcode)
@@ -138,8 +136,6 @@ std::string getErrorPath(ServerConfig &serverOne, int errcode)
     std::string errorpath = serverOne.getDocumentRoot() + "/" + serverOne.getErrorPageName(errcode);
     if (!errorpath.empty() && errorpath[0] == '/')
         errorpath = errorpath.substr(1);
-
-    //std::cout << RED << "Error path is " << errorpath << RESET << std::endl;
     
     return (errorpath);
 }
@@ -160,9 +156,6 @@ int serveRedirect(const HttpRequest &http_request, ServerConfig &serverOne, cons
 {
     const LocationConfig *redirectLocationMatch = getRedirectLocationMatch(http_request, serverOne, requestLocation);
     std::pair<int, std::string> redirect = redirectLocationMatch->getRedirect();
-    //std::cout << YELLOW << "Redirect int: " << requestLocation->getRedirect().first << RESET << std::endl;
-    //std::cout << YELLOW << "Redirect path: " << requestLocation->getRedirect().second << RESET << std::endl;
-    //std::cout << YELLOW << "Request location" << requestLocation->getPath() << RESET << std::endl;
     if (redirect.first != 0)
     {
         if (redirect.second.substr(0, 2) == "./")
@@ -195,7 +188,6 @@ int serveGet(const LocationConfig *requestLocation, int client_fd, const HttpReq
     // asking for raw root (serves first valid index from vector)
     if (isLocation(serverOne, path) == 0)
     {
-        //std::cout << PINK << "!!!!!!!!!!!!Raw root!!!!!!!!!!!!" << RESET << std::endl;
         validatePathWithIndex(path, requestLocation, serverOne);
         if (isMethodAllowed(requestLocation->getMethods(), "GET"))
             return respondGet(serverOne, client_fd, path, http_request, http_response);
@@ -210,7 +202,6 @@ int serveGet(const LocationConfig *requestLocation, int client_fd, const HttpReq
     // inside of root
     else if (isLocation(serverOne, path) == -1)
     {
-        //std::cout << PINK << "!!!!!!!!!!!!Inside root!!!!!!!!!!!!" << RESET << std::endl;
         if (isDirectory(serverOne.getDocumentRoot() + path))
         {
             if (requestLocation->getAutoIndex() == false)
@@ -222,7 +213,6 @@ int serveGet(const LocationConfig *requestLocation, int client_fd, const HttpReq
             }
             else
             {
-                //std::cout << PINK << "Autoindex generado aqui: " + serverOne.getDocumentRoot() + path << RESET << std::endl;
                 std::string autoindex_page = utils::generateAutoindexRoot(serverOne.getDocumentRoot(), path);
                 http_response.setResponse(200, autoindex_page);
                 if (http_response.respondInClient(client_fd) == -1)
@@ -243,7 +233,6 @@ int serveGet(const LocationConfig *requestLocation, int client_fd, const HttpReq
     // inside location
     else if (isLocation(serverOne, path) == 1)
     {
-        //std::cout << PINK << "!!!!!!!!!!!!Inside location!!!!!!!!!!!!" << RESET << std::endl;
         std::string tempPath = path;
         trimPathSlash(tempPath);
         if (!isMethodAllowed(requestLocation->getMethods(), "GET"))
@@ -264,7 +253,6 @@ int serveGet(const LocationConfig *requestLocation, int client_fd, const HttpReq
             }
             else
             {
-                //std::cout << PINK << "Autoindex generado aqui: " + path << RESET << std::endl;
                 std::string autoindex_page = generateAutoindexLocation(path + "/");
                 http_response.setResponse(200, autoindex_page);
                 if (http_response.respondInClient(client_fd) == -1)
@@ -297,10 +285,7 @@ int serveGet(const LocationConfig *requestLocation, int client_fd, const HttpReq
                     return respondGet(serverOne, client_fd, requestLocation->getRootOverride() + "/" + getFirstValidFile(requestLocation->getLocationIndexFiles(), requestLocation->getRootOverride()), http_request, http_response);
             }
             else
-            {
-                //std::cout << PINK << "." + path << RESET << std::endl;
                 return respondGet(serverOne, client_fd, "." + path, http_request, http_response);
-            }
         }
         else
         {
@@ -435,7 +420,6 @@ int serveUpload(const LocationConfig *requestLocation, int client_fd, const Http
     std::string uploadPath = "upload/" + getUploadFilename(http_request); // file.txt if no name
     if (storageStatus == 0 && (http_request.getPath() == "/upload" || http_request.getPath() == "/upload/"))
     {
-        //std::cout << BLUE << "uploadPath es " << uploadPath << RESET << std::endl;
         int fd = open(uploadPath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
         if (fd == -1)
         {
@@ -519,59 +503,6 @@ int servePost(const LocationConfig *requestLocation, int client_fd, const HttpRe
     }
 }
 
-/*
-int serveDelete(const LocationConfig *requestLocation, int client_fd, const HttpRequest &http_request, HttpResponse &http_response, ServerConfig &serverOne)
-{
-    int keep_alive = checkConnectionClose(http_request, http_response);
-
-    if (http_request.getPath().find("../") != std::string::npos)
-    {
-        http_response.setError(getErrorPath(serverOne, 403), 403, "Forbidden");
-        if (http_response.respondInClient(client_fd) == -1)
-            return (-1);
-        return (keep_alive);
-    }
-    std::cout << PINK << "hellooooooo path is " << http_request.getPath() << RESET << std::endl;
-    if (!requestLocation || !isMethodAllowed(requestLocation->getMethods(), "DELETE"))
-    {
-        http_response.setError(getErrorPath(serverOne, 405), 405, "Method Not Allowed");
-        if (http_response.respondInClient(client_fd) == -1)
-            return (-1);
-        return (keep_alive);
-    }
-    std::string path = http_request.getPath();
-    //utils::validatePathWithIndex(path, requestLocation, serverOne);
-    trimPathSlash(path);
-    std::cout << GRAY << "Delete request path is -->" << path << RESET << std::endl;
-    std::ifstream file(path.c_str());
-    if (!file.good())
-    {
-        http_response.setError(getErrorPath(serverOne, 404), 404, "Not Found");
-        if (http_response.respondInClient(client_fd) == -1)
-            return (-1);
-        return (keep_alive);
-    }
-    if (!utils::hasWXPermission(path) || utils::isDirectory(path))
-    {
-        http_response.setError(getErrorPath(serverOne, 403), 403, "Forbidden");
-        if (http_response.respondInClient(client_fd) == -1)
-            return (-1);
-        return (keep_alive);
-    }
-    // Deletion
-    if (std::remove(path.c_str()) == -1)
-    {
-        http_response.setError(getErrorPath(serverOne, 500), 500, "Internal Server Error");
-        if (http_response.respondInClient(client_fd) == -1)
-            return (-1);
-        return (keep_alive);
-    }
-    http_response.setResponse(200, "OK");
-    if (http_response.respondInClient(client_fd) == -1)
-        return (-1);
-    return (keep_alive);
-}*/
-
 int deleteFile(int keep_alive, const std::string &path, int client_fd, HttpResponse &http_response, ServerConfig &serverOne)
 {
     if (std::remove(path.c_str()) == -1)
@@ -603,7 +534,6 @@ int serveDelete(const LocationConfig *requestLocation, int client_fd, const Http
     // asking for raw root (serves first valid index from vector)
     if (isLocation(serverOne, path) == 0)
     {
-        //std::cout << PINK << "!!!!!!!!!!!!Raw root!!!!!!!!!!!!" << RESET << std::endl;
         http_response.setError(getErrorPath(serverOne, 403), 403, "Forbidden");
         if (http_response.respondInClient(client_fd) == -1)
             return (-1);
@@ -612,7 +542,6 @@ int serveDelete(const LocationConfig *requestLocation, int client_fd, const Http
     // inside of root
     else if (isLocation(serverOne, path) == -1)
     {
-        //std::cout << PINK << "!!!!!!!!!!!!Inside root!!!!!!!!!!!!" << RESET << std::endl;
         if (isDirectory(serverOne.getDocumentRoot() + path))
         {
             http_response.setError(getErrorPath(serverOne, 403), 403, "Forbidden");
@@ -633,7 +562,6 @@ int serveDelete(const LocationConfig *requestLocation, int client_fd, const Http
     // inside location
     else if (isLocation(serverOne, path) == 1)
     {
-        //std::cout << PINK << "!!!!!!!!!!!!Inside location!!!!!!!!!!!!" << RESET << std::endl;
         std::string tempPath = path;
         trimPathSlash(tempPath);
         if (!isMethodAllowed(requestLocation->getMethods(), "DELETE"))
@@ -728,7 +656,6 @@ void readFromSocket(t_client_socket *client_socket, int epoll_fd, std::map<int, 
 
     if (bytesRead <= 0)
     {
-        //NOTA: SE PODRIA AGRUPAR EL CONTENIDO DEL IF EN UNA FUNCION erase_fd_data()
         if (!client_socket->cgi)
         {
             epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_socket->socket_fd, NULL);
@@ -738,7 +665,6 @@ void readFromSocket(t_client_socket *client_socket, int epoll_fd, std::map<int, 
         }
         return;
     }
-    // leido -> append
     client_socket->readBuffer.append(buf, bytesRead);
 }
 
@@ -746,8 +672,8 @@ bool isDirectory(const std::string& path)
 {
     struct stat st;
     if (stat(path.c_str(), &st) != 0)
-        return (false); // path invalido
-    return (S_ISDIR(st.st_mode)); // true si es directorio, false si no
+        return (false);
+    return (S_ISDIR(st.st_mode));
 }
 
 std::string makeRelative(std::string path)
@@ -1164,8 +1090,6 @@ std::map<std::string, std::string> extractCgiHeaders(std::string &sendBuffer)
     return (headers);
 }
 
-// TODO: Probar (con GET o POST formulario)
-// TODO: Entrar por respond normal si es POST-upload o DELETE (con.py) (debemos quitar la query string)
 int respondCGI(t_server_context &server_context, t_client_socket *client_socket)
 {
     (void)server_context;
@@ -1280,14 +1204,8 @@ std::string unchunkedBody(const std::string &body)
     std::string result;
     std::size_t pos = 0;
 
-    /*std::cout << "Body hexdump:\n";
-    for (size_t i = 0; i < body.size(); ++i)
-        printf("%02X ", (unsigned char)body[i]);
-    std::cout << "\n";*/
-
     while (pos < body.size())
     {
-        // Encontrar fin de linea de hex size
         std::size_t line_end = body.find("\r\n", pos);
         if (line_end == std::string::npos)
             break;
